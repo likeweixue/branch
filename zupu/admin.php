@@ -16,7 +16,23 @@ if (!zp_is_admin()) {
 $cur = zp_current_user();
 $members = zp_load_json(MEMBERS_FILE, []);
 $settings = zp_load_json(SETTINGS_FILE, zp_default_settings());
+$users_local = zp_load_json(USERS_FILE, []);
 $zp_admin = ['members' => $members, 'settings' => $settings];
+
+/* 服务端渲染辅助：取成员名 / 生成下拉选项（即便 JS 未加载也能显示数据） */
+function zp_name($ms, $id) {
+    if (!$id) return '—';
+    foreach ($ms as $m) { if ($m['id'] === $id) return $m['name']; }
+    return '—';
+}
+function zp_opt($ms, $sel, $withNone) {
+    $h = $withNone ? '<option value="">（无）</option>' : '';
+    foreach ($ms as $m) {
+        $lab = htmlspecialchars($m['name']) . ($m['zi_bei'] ? '（' . htmlspecialchars($m['zi_bei']) . '）' : '');
+        $h .= '<option value="' . $m['id'] . '"' . ($m['id'] === $sel ? ' selected' : '') . '>' . $lab . '</option>';
+    }
+    return $h;
+}
 ?>
 <!doctype html>
 <html lang="zh-CN">
@@ -64,6 +80,7 @@ $zp_admin = ['members' => $members, 'settings' => $settings];
   <div class="zp-brand"><b>宗谱</b><span>ADMIN CONSOLE</span></div>
   <div class="spacer"></div>
   <span class="zp-tag"><?= htmlspecialchars($cur['username']) ?> · 管理员</span>
+  <a class="zp-btn accent" href="editor.php">画布编辑器 →</a>
   <a class="zp-btn" href="index.php">← 返回首页</a>
   <button class="zp-btn ghost" id="zpLogout">退出</button>
 </header>
@@ -83,14 +100,14 @@ $zp_admin = ['members' => $members, 'settings' => $settings];
       <span class="ad-muted">提示：父/母填其一即可；配偶可多选（红线）。删除成员会一并清理其亲属指向。</span></div>
     <div class="ad-form" id="adMemberForm" style="display:none">
       <input type="hidden" id="m_id">
-      <div><label>姓名 *</label><input id="m_name" type="text" placeholder="如 张永华"></div>
-      <div><label>字辈（可输入，也可从下拉选）</label><input id="m_zibei" type="text" list="zbList" maxlength="4" placeholder="如 永"><datalist id="zbList"></datalist></div>
+      <div><label>姓名 *</label><input id="m_name" type="text" placeholder="如 刘永生"></div>
+      <div><label>字辈（可输入，也可从下拉选）</label><input id="m_zibei" type="text" list="zbList" maxlength="4" placeholder="如 永"><datalist id="zbList"><?php foreach (($settings['zi_bei'] ?? []) as $z): ?><option value="<?= htmlspecialchars($z) ?>"><?php endforeach; ?></datalist></div>
       <div><label>性别</label><select id="m_gender"><option value="male">男</option><option value="female">女</option></select></div>
       <div><label>出生日期</label><input id="m_birth" type="text" placeholder="YYYY-MM-DD"></div>
       <div><label>逝世日期（健在留空）</label><input id="m_death" type="text" placeholder="YYYY-MM-DD"></div>
-      <div><label>父亲</label><select id="m_father"></select></div>
-      <div><label>母亲</label><select id="m_mother"></select></div>
-      <div class="full"><label>配偶（两姓结姻 · 红线，可多选）</label><div class="ad-chk" id="m_spouse"></div></div>
+      <div><label>父亲</label><select id="m_father"><?= zp_opt($members, '', true) ?></select></div>
+      <div><label>母亲</label><select id="m_mother"><?= zp_opt($members, '', true) ?></select></div>
+      <div class="full"><label>配偶（两姓结姻 · 红线，可多选）</label><div class="ad-chk" id="m_spouse"><?php foreach ($members as $m): ?><label><input type="checkbox" id="sp_<?= $m['id'] ?>" value="<?= $m['id'] ?>"><?= htmlspecialchars($m['name']) . ($m['zi_bei'] ? '（' . htmlspecialchars($m['zi_bei']) . '）' : '') ?></label><?php endforeach; ?></div></div>
       <div><label>同辈排行（数字，越小越年长）</label><input id="m_order" type="number" value="1" min="1"></div>
       <div class="full"><label>简介 / 备注</label><textarea id="m_bio" placeholder="生平、事迹等"></textarea></div>
       <div class="full" style="display:flex;gap:10px;justify-content:flex-end">
@@ -100,7 +117,24 @@ $zp_admin = ['members' => $members, 'settings' => $settings];
     </div>
     <table class="ad-t">
       <thead><tr><th>姓名</th><th>字辈</th><th>性别</th><th>生卒</th><th>父母</th><th>配偶</th><th>操作</th></tr></thead>
-      <tbody id="mList"></tbody>
+      <tbody id="mList"><?php foreach ($members as $m):
+        $sp = [];
+        foreach (($m['spouse_ids'] ?? []) as $sid) { $sp[] = zp_name($members, $sid); }
+        $spouse = $sp ? implode('、', $sp) : '—';
+        $par = array_filter([!empty($m['father_id']) ? zp_name($members, $m['father_id']) : null, !empty($m['mother_id']) ? zp_name($members, $m['mother_id']) : null]);
+        $parents = $par ? implode(' / ', $par) : '—';
+        $gender = ($m['gender'] ?? 'male') === 'female' ? '女' : '男';
+        $birth = ($m['birth'] ?? '') ?: '?';
+        $life = $birth . (!empty($m['death']) ? ' ～ ' . htmlspecialchars($m['death']) : '');
+      ?><tr>
+        <td><?= htmlspecialchars($m['name']) ?></td>
+        <td><?= $m['zi_bei'] ? htmlspecialchars($m['zi_bei']) : '—' ?></td>
+        <td><?= $gender ?></td>
+        <td><?= htmlspecialchars($life) ?></td>
+        <td><?= htmlspecialchars($parents) ?></td>
+        <td><?= htmlspecialchars($spouse) ?></td>
+        <td><span class="ad-act" data-edit="<?= $m['id'] ?>">编辑</span><span class="ad-act del" data-del="<?= $m['id'] ?>">删除</span></td>
+      </tr><?php endforeach; ?></tbody>
     </table>
   </section>
 
@@ -142,7 +176,7 @@ $zp_admin = ['members' => $members, 'settings' => $settings];
       <div><label>用户名 *</label><input id="u_name" type="text"></div>
       <div><label>密码（新增必填 / 修改留空不改）</label><input id="u_pass" type="password" placeholder="至少 6 位"></div>
       <div><label>角色</label><select id="u_role"><option value="member">普通成员</option><option value="admin">管理员</option></select></div>
-      <div><label>绑定成员</label><select id="u_member"></select></div>
+      <div><label>绑定成员</label><select id="u_member"><?= zp_opt($members, '', true) ?></select></div>
       <div class="full" style="display:flex;gap:10px;justify-content:flex-end">
         <button class="zp-btn ghost" id="uCancel">取消</button>
         <button class="zp-btn accent" id="uSave">保存用户</button>
@@ -150,14 +184,23 @@ $zp_admin = ['members' => $members, 'settings' => $settings];
     </div>
     <table class="ad-t">
       <thead><tr><th>用户名</th><th>角色</th><th>绑定成员</th><th>创建时间</th><th>操作</th></tr></thead>
-      <tbody id="uList"></tbody>
+      <tbody id="uList"><?php foreach ($users_local as $u):
+        $role = ($u['role'] ?? 'member') === 'admin' ? '管理员' : '普通成员';
+        $mem = !empty($u['member_id']) ? zp_name($members, $u['member_id']) : '—';
+      ?><tr>
+        <td><?= htmlspecialchars($u['username']) ?></td>
+        <td><?= $role ?></td>
+        <td><?= htmlspecialchars($mem) ?></td>
+        <td><?= htmlspecialchars($u['created'] ?? '') ?></td>
+        <td><span class="ad-act" data-uedit="<?= $u['id'] ?>">编辑</span><span class="ad-act del" data-udel="<?= $u['id'] ?>">删除</span></td>
+      </tr><?php endforeach; ?></tbody>
     </table>
   </section>
 </div>
 
 <div class="zp-toast" id="zpToast"></div>
 
-<script>window.ZP_ADMIN = <?= json_encode($zp_admin, JSON_UNESCAPED_UNICODE) ?>;</script>
+<script>window.ZP_ADMIN = <?= json_encode($zp_admin, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script src="assets/js/admin.js"></script>
 </body>
 </html>

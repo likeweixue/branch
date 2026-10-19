@@ -363,6 +363,65 @@ switch ($action) {
         zp_json(['ok' => true]);
         break;
 
+    /* ============ 画布编辑器：整体保存树（含位置与关系） ============ */
+    case 'save_tree':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $incoming = isset($in['members']) && is_array($in['members']) ? $in['members'] : [];
+        $byId = [];
+        foreach ($incoming as $m) {
+            if (empty($m['id']) || empty($m['name'])) {
+                zp_json(['ok' => false, 'msg' => '存在缺少 id 或姓名的成员'], 400);
+            }
+            $byId[$m['id']] = $m;
+        }
+        // 防环：父/母不能是自己或自己的后代
+        foreach ($incoming as $m) {
+            foreach (['father_id', 'mother_id'] as $pk) {
+                $pid = $m[$pk] ?? null;
+                if ($pid && ($pid === $m['id'] || zp_is_ancestor($incoming, $m['id'], $pid))) {
+                    zp_json(['ok' => false, 'msg' => '存在循环亲属关系（' . ($m['name'] ?? $m['id']) . '）'], 400);
+                }
+            }
+        }
+        // 配偶关系互惠（仅保留互相指向的）
+        foreach ($incoming as &$m) {
+            $m['spouse_ids'] = isset($m['spouse_ids']) && is_array($m['spouse_ids'])
+                ? array_values(array_unique(array_filter($m['spouse_ids'], fn($x) => $x !== '' && isset($byId[$x]))))
+                : [];
+        }
+        unset($m);
+        foreach ($incoming as $m) {
+            foreach ($m['spouse_ids'] as $sid) {
+                $sp2 = $byId[$sid]['spouse_ids'] ?? [];
+                if (!in_array($m['id'], $sp2, true)) { $byId[$sid]['spouse_ids'][] = $m['id']; }
+            }
+        }
+        // 规整字段并保留坐标 pos
+        $out = [];
+        foreach ($incoming as $m) {
+            $out[] = [
+                'id'         => $m['id'],
+                'name'       => $m['name'],
+                'zi_bei'     => trim($m['zi_bei'] ?? ''),
+                'gender'     => ($m['gender'] ?? 'male') === 'female' ? 'female' : 'male',
+                'birth'      => trim($m['birth'] ?? ''),
+                'death'      => trim($m['death'] ?? '') ?: null,
+                'bio'        => trim($m['bio'] ?? ''),
+                'father_id'  => (!empty($m['father_id']) && isset($byId[$m['father_id']])) ? $m['father_id'] : null,
+                'mother_id'  => (!empty($m['mother_id']) && isset($byId[$m['mother_id']])) ? $m['mother_id'] : null,
+                'spouse_ids' => $m['spouse_ids'],
+                'order'      => (int) ($m['order'] ?? 1),
+                'pos'        => (isset($m['pos']) && is_array($m['pos']) && is_numeric($m['pos']['x'] ?? null) && is_numeric($m['pos']['y'] ?? null))
+                    ? ['x' => (float) $m['pos']['x'], 'y' => (float) $m['pos']['y']]
+                    : null,
+            ];
+        }
+        zp_save_json(MEMBERS_FILE, $out);
+        zp_json(['ok' => true]);
+        break;
+
     default:
         zp_json(['ok' => false, 'msg' => '未知操作'], 404);
 }

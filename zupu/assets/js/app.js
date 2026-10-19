@@ -81,19 +81,22 @@
       depth[m.id] = pd;
     });
 
-    // 3) 映射为坐标
+    // 3) 映射为坐标（若编辑器已保存手动布局，则优先使用其节点中心坐标）
     members.forEach(function (m) {
       if (!pos[m.id]) pos[m.id] = { row: nextRow++ };
       var d = depth[m.id] || 0;
       var r = pos[m.id].row;
       var off = pos[m.id].offGen || 0;
+      var x, y;
       if (layoutMode === 'horizontal') {
-        pos[m.id].x = (d + off) * COL_W + PAD;
-        pos[m.id].y = r * ROW_H + PAD;
+        x = (d + off) * COL_W + PAD; y = r * ROW_H + PAD;
       } else {
-        pos[m.id].x = r * COL_W + PAD;
-        pos[m.id].y = (d + off) * ROW_H + PAD;
+        x = r * COL_W + PAD; y = (d + off) * ROW_H + PAD;
       }
+      if (m.pos && typeof m.pos.x === 'number' && typeof m.pos.y === 'number') {
+        x = m.pos.x; y = m.pos.y;   // 编辑器保存的已是节点中心坐标
+      }
+      pos[m.id].x = x; pos[m.id].y = y;
     });
   }
 

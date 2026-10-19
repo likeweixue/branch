@@ -22,7 +22,7 @@ function zp_ensure_seed() {
             ['id'=>'m10','name'=>'周敏','zi_bei'=>'','gender'=>'female','birth'=>'2014-02-14','death'=>null,'bio'=>'永杰之妻，周姓。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m9'],'order'=>1],
             ['id'=>'m11','name'=>'张学丽','zi_bei'=>'学','gender'=>'female','birth'=>'1988-06-21','death'=>null,'bio'=>'常贵长女。','father_id'=>'m3','mother_id'=>'m4','spouse_ids'=>['m12'],'order'=>2],
             ['id'=>'m12','name'=>'陈强','zi_bei'=>'','gender'=>'male','birth'=>'1987-10-30','death'=>null,'bio'=>'学丽之夫，陈姓。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m11'],'order'=>1],
-            ['id'=>'m13','name'=>'张永华','zi_bei'=>'永','gender'=>'male','birth'=>'2010-05-01','death'=>null,'bio'=>'学强次子，本系统示例中的“我”。','father_id'=>'m7','mother_id'=>'m8','spouse_ids'=>[],'order'=>2],
+            ['id'=>'m13','name'=>'刘永生','zi_bei'=>'永','gender'=>'male','birth'=>'2010-05-01','death'=>null,'bio'=>'学强次子，本系统示例中的“我”（刘永生）。','father_id'=>'m7','mother_id'=>'m8','spouse_ids'=>[],'order'=>2],
             ['id'=>'m14','name'=>'张学军','zi_bei'=>'学','gender'=>'male','birth'=>'1989-03-03','death'=>null,'bio'=>'常富长子。','father_id'=>'m5','mother_id'=>'m6','spouse_ids'=>['m15'],'order'=>1],
             ['id'=>'m15','name'=>'孙倩','zi_bei'=>'','gender'=>'female','birth'=>'1990-07-07','death'=>null,'bio'=>'学军之妻，孙姓。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m14'],'order'=>1],
             ['id'=>'m16','name'=>'张远涛','zi_bei'=>'远','gender'=>'male','birth'=>'2040-01-01','death'=>null,'bio'=>'永杰之子（示例晚辈）。','father_id'=>'m9','mother_id'=>'m10','spouse_ids'=>[],'order'=>1],
