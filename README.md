@@ -399,7 +399,7 @@ curl -b cookie.txt 'http://127.0.0.1:8080/api.php?action=get_tree'
 v0.0.2 起成员表、用户表、各下拉框都由 PHP 服务端渲染，JS 挂了也应能看到数据。如果你仍看到空白，依次检查：① 是否已把新版 `admin.php` 覆盖到服务器；② 浏览器强刷（`Cmd/Ctrl + Shift + R`）清缓存；③ PHP 是否有报错（看 nginx/php-fpm 错误日志）；④ `data/*.json` 是否为空或损坏。
 
 **Q：启动页只出现一次，怎么再看？**
-默认是"首次访问"模式。改用无痕窗口，或在后台把时机改为"每次访问"，或清掉浏览器 localStorage 里的 `zp_splash_seen`。
+在地址后面加 `?splash=1` 可强制重播（如 `http://127.0.0.1:8080/?splash=1`）。也可以改用无痕窗口、把后台"播放时机"改为"每次访问"，或清掉浏览器 localStorage 里的 `zp_splash_seen`。
 
 **Q：双击 `start.command` 提示"无法打开，因为无法验证开发者"？**
 右键点它 → 选「打开」→ 再点「打开」即可（macOS 的一次性放行）。或直接执行：

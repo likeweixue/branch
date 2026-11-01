@@ -16,6 +16,8 @@
   var mode = cfg.mode || 'first';
   var seen = false;
   try { seen = localStorage.getItem('zp_splash_seen') === '1'; } catch (e) {}
+  // 调试/演示：URL 带 ?splash=1 时强制重播一次
+  var force = /(^|[?&])splash=1(&|$)/.test(location.search);
 
   function done() {
     try { if (mode === 'first') localStorage.setItem('zp_splash_seen', '1'); } catch (e) {}
@@ -23,7 +25,7 @@
     window.dispatchEvent(new Event('zp:splash-done'));
   }
 
-  if (!enabled || mode === 'off' || (mode === 'first' && seen)) { done(); return; }
+  if (!enabled || mode === 'off' || (mode === 'first' && seen && !force)) { done(); return; }
 
   var name = cfg.name || '访客';
   var $ = function (id) { return document.getElementById(id); };
