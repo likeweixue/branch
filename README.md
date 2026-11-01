@@ -88,17 +88,32 @@
 - 不需要：MySQL、Redis、Composer、Node.js、任何构建步骤
 - 依赖扩展：`json`、`session`（PHP 默认自带）
 
-### 本地跑起来
+### 方式 A：双击启动（macOS，零安装）
+
+仓库根目录双击 **`start.command`** 即可。首次运行会自动下载一个免安装的静态 PHP（约 30 MB，放在 `.runtime/`，已被 git 忽略），之后每次都是秒开。
+
+- 自动挑选空闲端口（8080 起），并打开浏览器；
+- 终端窗口保持打开即服务运行，按 `Ctrl+C` 或关窗口即停止；
+- 首次打开若提示"无法验证开发者"，右键点 `start.command` → 打开，或执行：
+
+```bash
+xattr -d com.apple.quarantine start.command
+chmod +x start.command
+```
+
+### 方式 B：已有 PHP 环境
 
 ```bash
 git clone git@github.com:likeweixue/branch.git zupu
 cd zupu
-php -S 127.0.0.1:8080
+php -S 127.0.0.1:8080 -t . router.php
 ```
 
 浏览器打开 <http://127.0.0.1:8080/>。首次访问会自动写入示例家族与默认账号。
 
-> ⚠️ PHP 内置服务器会把 `data/` 也当静态文件暴露，**只用于本机自测**。对外提供服务请用下面的 nginx 配置。
+> `router.php` 是本地预览用的路由脚本，会拦掉对 `/data/` 的直接访问（返回 403），与生产 nginx 的行为一致。
+>
+> ⚠️ PHP 内置服务器是单进程、无并发的，**只适合本机自测**。对外提供服务请用下面的 nginx 配置。
 
 ### Nginx 部署
 
@@ -177,6 +192,8 @@ find /var/www/zupu -type f -exec chmod 644 {} \;
 │       ├── admin.js       # 后台交互（表格由 PHP 渲染，JS 只做增强）
 │       └── editor.js      # 画布拖拽、连线、保存
 ├── nginx.example.conf     # 部署示例（已配置 deny /data/）
+├── router.php             # 本地预览路由：拦截 /data/ 直连
+├── start.command          # macOS 一键启动（双击运行，自动准备 PHP）
 ├── LICENSE                # MIT
 └── data/                  # 运行时生成，已被 .gitignore 排除
     ├── members.json
@@ -383,6 +400,17 @@ v0.0.2 起成员表、用户表、各下拉框都由 PHP 服务端渲染，JS �
 
 **Q：启动页只出现一次，怎么再看？**
 默认是"首次访问"模式。改用无痕窗口，或在后台把时机改为"每次访问"，或清掉浏览器 localStorage 里的 `zp_splash_seen`。
+
+**Q：双击 `start.command` 提示"无法打开，因为无法验证开发者"？**
+右键点它 → 选「打开」→ 再点「打开」即可（macOS 的一次性放行）。或直接执行：
+
+```bash
+xattr -d com.apple.quarantine start.command
+chmod +x start.command
+```
+
+**Q：提示端口被占用？**
+`start.command` 会自动从 8080 往后找空端口，并在终端里打印实际地址。若 8080-8100 全被占，先关掉占用的程序（`lsof -nP -iTCP:8080 -sTCP:LISTEN` 可查）。
 
 **Q：忘记管理员密码了？**
 生成一个新哈希，替换 `data/users.json` 里对应用户的 `password` 字段：
