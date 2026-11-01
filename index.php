@@ -48,8 +48,8 @@ $zp_data = [
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>宗谱 · 家族族谱</title>
-<link rel="stylesheet" href="assets/css/splash.css">
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="<?= zp_asset('assets/css/splash.css') ?>">
+<link rel="stylesheet" href="<?= zp_asset('assets/css/app.css') ?>">
 </head>
 <body>
 
@@ -170,7 +170,7 @@ $zp_data = [
 
 <script>window.ZP = <?= json_encode($zp_data, JSON_UNESCAPED_UNICODE) ?>;</script>
 <script>window.ZP_STARTUP = <?= json_encode($zp_startup, JSON_UNESCAPED_UNICODE) ?>;</script>
-<script src="assets/js/splash.js"></script>
-<script src="assets/js/app.js"></script>
+<script src="<?= zp_asset('assets/js/splash.js') ?>"></script>
+<script src="<?= zp_asset('assets/js/app.js') ?>"></script>
 </body>
 </html>

@@ -12,7 +12,8 @@
   var byId = {};
   members.forEach(function (m) { byId[m.id] = m; });
 
-  var COL_W = 230, ROW_H = 96, NODE_W = 176, NODE_H = 60, PAD = 80;
+  var COL_W = 400, ROW_H = 96, NODE_W = 176, NODE_H = 60, PAD = 80;
+  var COL_W_V = 230, ROW_H_V = 170;   // 竖排：横向排兄弟、纵向排辈分，需容纳配偶错位
   var layoutMode = settings.layout === 'vertical' ? 'vertical' : 'horizontal';
 
   var pos = {};        // id -> {x,y}  (世界坐标，节点中心)
@@ -39,64 +40,97 @@
 
   function computeLayout() {
     pos = {};
-    // 1) 深度（沿主父母上溯到根）
-    var depth = {};
+    var unitOf = {}, units = [];
+
+    /* 1) 夫妻合并为「家庭单元」，避免两口子被拆到两列 */
     members.forEach(function (m) {
-      var d = 0, cur = m, seen = {}, guard = 0;
-      while (primaryParent(cur) && guard++ < 200 && !seen[cur.id]) {
-        seen[cur.id] = true; cur = primaryParent(cur); d++;
-      }
-      depth[m.id] = d;
+      var u = { uid: units.length, ids: [m.id], members: [m], row: null, depth: null, kids: [], parent: null, anchor: m, partner: null };
+      unitOf[m.id] = u; units.push(u);
+    });
+    members.forEach(function (m) {
+      (m.spouse_ids || []).forEach(function (sid) {
+        var a = unitOf[m.id], b = unitOf[sid];
+        if (!a || !b || a === b) return;
+        b.ids.forEach(function (id) { unitOf[id] = a; });
+        a.ids = a.ids.concat(b.ids);
+        a.members = a.members.concat(b.members);
+        units.splice(units.indexOf(b), 1);
+      });
     });
 
-    // 2) 行号（子树打包）
-    var marriedIn = {}; // 娶/嫁入、无父母但有配偶者
-    members.forEach(function (m) {
-      if (!m.father_id && !m.mother_id && m.spouse_ids && m.spouse_ids.length) marriedIn[m.id] = true;
+    /* 2) 单元代表：优先"父母在谱中"的一方，其次男性；另一位作为配偶贴左侧 */
+    units.forEach(function (u) {
+      var best = u.members[0], bestScore = -1;
+      u.members.forEach(function (m) {
+        var hasP = !!(m.father_id && byId[m.father_id]) || !!(m.mother_id && byId[m.mother_id]);
+        var score = (hasP ? 2 : 0) + (m.gender === 'male' ? 1 : 0);
+        if (score > bestScore) { bestScore = score; best = m; }
+      });
+      u.anchor = best;
+      u.partner = u.members.filter(function (m) { return m.id !== best.id; })[0] || null;
     });
-    var roots = members.filter(function (m) {
-      return (!m.father_id && !m.mother_id) && !marriedIn[m.id];
-    });
-    var nextRow = 0;
-    function assign(node) {
-      var kids = childrenOf(node.id);
-      if (!kids.length) { pos[node.id] = { row: nextRow }; nextRow += 1; return pos[node.id].row; }
-      var rows = kids.map(assign);
-      pos[node.id] = { row: (rows[0] + rows[rows.length - 1]) / 2 };
-      return pos[node.id].row;
-    }
-    // 按深度排序根，保证视觉稳定
-    roots.sort(function (a, b) { return depth[a.id] - depth[b.id] || (a.birth || '').localeCompare(b.birth || ''); });
-    roots.forEach(assign);
 
-    // 娶/嫁入者贴在其配偶旁（同代、半步偏移）
-    members.forEach(function (m) {
-      if (!marriedIn[m.id]) return;
+    /* 3) 父子关系归到单元：优先父亲所在单元 */
+    units.forEach(function (u) {
       var p = null;
-      (m.spouse_ids || []).forEach(function (sid) { if (!p && byId[sid] && pos[sid]) p = byId[sid]; });
-      if (!p) return;
-      var pd = depth[p.id], pr = pos[p.id].row;
-      if (layoutMode === 'horizontal') pos[m.id] = { row: pr, offGen: -0.55 };
-      else pos[m.id] = { row: pr, offGen: -0.55 };
-      depth[m.id] = pd;
+      u.ids.forEach(function (id) {
+        if (p) return;
+        var m = byId[id]; if (!m) return;
+        if (m.father_id && unitOf[m.father_id] && unitOf[m.father_id] !== u) p = unitOf[m.father_id];
+        else if (m.mother_id && unitOf[m.mother_id] && unitOf[m.mother_id] !== u) p = unitOf[m.mother_id];
+      });
+      u.parent = p || null;
+      if (p) p.kids.push(u);
     });
 
-    // 3) 映射为坐标（若编辑器已保存手动布局，则优先使用其节点中心坐标）
+    /* 4) 代数：一代一列 */
+    function unitDepth(u, seen, guard) {
+      if (u.depth != null) return u.depth;
+      if (guard > 200 || seen[u.uid]) return 0;
+      seen[u.uid] = true;
+      var d = (u.parent && !seen[u.parent.uid]) ? unitDepth(u.parent, seen, guard + 1) + 1 : 0;
+      u.depth = d; return d;
+    }
+    units.forEach(function (u) { unitDepth(u, {}, 0); });
+
+    /* 5) 行号：同代按父母位置排序（减少交叉），一代内依次占行 */
+    var byDepth = {};
+    units.forEach(function (u) { (byDepth[u.depth] = byDepth[u.depth] || []).push(u); });
+    Object.keys(byDepth).sort(function (a, b) { return a - b; }).forEach(function (dk) {
+      var list = byDepth[dk];
+      list.forEach(function (u, i) { u._i = i; });
+      list.sort(function (a, b) {
+        var ra = a.parent ? a.parent.row : -1;
+        var rb = b.parent ? b.parent.row : -1;
+        if (ra !== rb) return ra - rb;
+        return a._i - b._i;
+      });
+      list.forEach(function (u, i) { u.row = i; });
+    });
+
+    /* 6) 落坐标（节点中心）：配偶紧贴本人左侧，留出 18px 间隙 */
+    var offX = NODE_W + 18;   // 横向：两人中心距 = 卡宽 + 间距
+    var offY = NODE_H + 14;   // 纵向：同理
+    var cw = layoutMode === 'vertical' ? COL_W_V : COL_W;
+    var rh = layoutMode === 'vertical' ? ROW_H_V : ROW_H;
+    units.forEach(function (u) {
+      var d = u.depth || 0, r = u.row;
+      u.members.forEach(function (m) {
+        var isPartner = u.partner && m.id === u.partner.id;
+        if (layoutMode === 'horizontal') {
+          pos[m.id] = { x: d * cw + PAD - (isPartner ? offX : 0), y: r * rh + PAD };
+        } else {
+          pos[m.id] = { x: r * cw + PAD, y: d * rh + PAD - (isPartner ? offY : 0) };
+        }
+      });
+    });
+
+    /* 7) 编辑器保存过的手动坐标优先 */
     members.forEach(function (m) {
-      if (!pos[m.id]) pos[m.id] = { row: nextRow++ };
-      var d = depth[m.id] || 0;
-      var r = pos[m.id].row;
-      var off = pos[m.id].offGen || 0;
-      var x, y;
-      if (layoutMode === 'horizontal') {
-        x = (d + off) * COL_W + PAD; y = r * ROW_H + PAD;
-      } else {
-        x = r * COL_W + PAD; y = (d + off) * ROW_H + PAD;
-      }
+      if (!pos[m.id]) pos[m.id] = { x: PAD, y: PAD };
       if (m.pos && typeof m.pos.x === 'number' && typeof m.pos.y === 'number') {
-        x = m.pos.x; y = m.pos.y;   // 编辑器保存的已是节点中心坐标
+        pos[m.id].x = m.pos.x; pos[m.id].y = m.pos.y;
       }
-      pos[m.id].x = x; pos[m.id].y = y;
     });
   }
 
@@ -149,8 +183,16 @@
   function edge(a, b, color, mode, marriage) {
     var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     var ax, ay, bx, by;
-    if (mode === 'horizontal') { ax = a.x + NODE_W / 2; ay = a.y; bx = b.x - NODE_W / 2; by = b.y; }
-    else { ax = a.x; ay = a.y + NODE_H / 2; bx = b.x; by = b.y - NODE_H / 2; }
+    if (mode === 'horizontal') {
+      // 子辈在右就从右缘出发，在左（如母系）就从左缘出发，避免连线穿过卡片
+      var dir = b.x >= a.x ? 1 : -1;
+      ax = a.x + dir * NODE_W / 2; ay = a.y;
+      bx = b.x - dir * NODE_W / 2; by = b.y;
+    } else {
+      var dirY = b.y >= a.y ? 1 : -1;
+      ax = a.x; ay = a.y + dirY * NODE_H / 2;
+      bx = b.x; by = b.y - dirY * NODE_H / 2;
+    }
     // 平滑曲线
     var mx = (ax + bx) / 2, my = (ay + by) / 2;
     var d;

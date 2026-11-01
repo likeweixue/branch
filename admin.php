@@ -40,14 +40,14 @@ function zp_opt($ms, $sel, $withNone) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>宗谱 · 后台管理</title>
-<link rel="stylesheet" href="assets/css/splash.css">
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="<?= zp_asset('assets/css/splash.css') ?>">
+<link rel="stylesheet" href="<?= zp_asset('assets/css/app.css') ?>">
 <style>
   .ad-wrap{max-width:1100px;margin:74px auto 40px;padding:0 20px;}
   .ad-nav{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
   .ad-nav button{border:1.5px solid var(--hair);background:var(--card);color:var(--ink-soft);font-family:var(--din);font-size:13px;letter-spacing:.06em;padding:8px 16px;border-radius:2px;}
   .ad-nav button.on{border-color:var(--accent);color:var(--accent);}
-  .ad-panel{display:none;background:var(--card);border:1px solid var(--hair);border-radius:12px;padding:22px;box-shadow:0 8px 24px rgba(0,0,0,.05);}
+  .ad-panel{display:none;background:var(--card);border:1px solid var(--hair);border-radius:12px;padding:22px;box-shadow:0 8px 24px rgba(0,0,0,.05);overflow-x:auto;}
   .ad-panel.on{display:block;}
   .ad-panel h2{font-family:var(--din);font-size:17px;letter-spacing:.04em;margin:0 0 16px;}
   table.ad-t{width:100%;border-collapse:collapse;font-size:13px;}
@@ -72,6 +72,12 @@ function zp_opt($ms, $sel, $withNone) {
   .ad-muted{color:var(--muted);font-size:12px;font-family:var(--mono);letter-spacing:.04em;}
   .ad-sel-member{font-size:12px;color:var(--muted);}
   .ad-top a{text-decoration:none;}
+  @media (max-width:760px){
+    .ad-wrap{margin-top:66px;padding:0 12px;}
+    .ad-panel{padding:14px;}
+    .ad-form{grid-template-columns:1fr;}
+    table.ad-t{min-width:760px;}
+  }
 </style>
 </head>
 <body>
@@ -201,6 +207,6 @@ function zp_opt($ms, $sel, $withNone) {
 <div class="zp-toast" id="zpToast"></div>
 
 <script>window.ZP_ADMIN = <?= json_encode($zp_admin, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script src="assets/js/admin.js"></script>
+<script src="<?= zp_asset('assets/js/admin.js') ?>"></script>
 </body>
 </html>

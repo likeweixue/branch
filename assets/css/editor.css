@@ -44,7 +44,7 @@
 .ed-nodes { position: absolute; left: 0; top: 0; }
 
 .ed-node {
-  position: absolute; min-width: 96px; max-width: 160px;
+  position: absolute; width: 132px;
   background: #fff; border: 1.5px solid var(--hair, #e4dfd4); border-radius: 12px;
   padding: 9px 11px; box-shadow: 0 6px 18px rgba(0,0,0,.08);
   cursor: grab; user-select: none; box-sizing: border-box;
@@ -54,7 +54,7 @@
 .ed-node.dragging { cursor: grabbing; box-shadow: 0 10px 26px rgba(0,0,0,.16); z-index: 5; }
 .ed-node.pending { border-color: var(--accent, #ff7500); box-shadow: 0 0 0 3px rgba(255,117,0,.18); }
 .ed-node.self { border-color: var(--accent, #ff7500); }
-.ed-node .ed-name { font-size: 14px; font-weight: 700; color: var(--ink, #2c2a26); line-height: 1.2; }
+.ed-node .ed-name { font-size: 14px; font-weight: 700; color: var(--ink, #2c2a26); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ed-node .ed-sub { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 .ed-node .ed-zb {
   font-size: 10px; color: #fff; background: var(--accent, #ff7500);

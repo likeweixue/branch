@@ -25,9 +25,9 @@ $ed = ['members' => $members, 'settings' => $settings, 'me' => $me];
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>宗谱 · 画布编辑器</title>
-<link rel="stylesheet" href="assets/css/splash.css">
-<link rel="stylesheet" href="assets/css/app.css">
-<link rel="stylesheet" href="assets/css/editor.css">
+<link rel="stylesheet" href="<?= zp_asset('assets/css/splash.css') ?>">
+<link rel="stylesheet" href="<?= zp_asset('assets/css/app.css') ?>">
+<link rel="stylesheet" href="<?= zp_asset('assets/css/editor.css') ?>">
 </head>
 <body class="ed-body">
 
@@ -66,6 +66,6 @@ $ed = ['members' => $members, 'settings' => $settings, 'me' => $me];
 <div class="zp-toast" id="zpToast"></div>
 
 <script>window.ZP_ED = <?= json_encode($ed, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script src="assets/js/editor.js"></script>
+<script src="<?= zp_asset('assets/js/editor.js') ?>"></script>
 </body>
 </html>

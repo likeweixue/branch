@@ -29,6 +29,9 @@
   var svg = document.getElementById('edLines');
   var SVGNS = 'http://www.w3.org/2000/svg';
 
+  /* 布局常量：一代一列（左长辈 → 右晚辈），配偶并肩 */
+  var NODE_W = 132, NODE_H = 56, COL_W = 360, ROW_H = 110, PAD = 90;
+
   function toast(msg) {
     var t = document.getElementById('zpToast');
     t.textContent = msg; t.classList.add('on');
@@ -37,29 +40,87 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function get(id) { return byId[id]; }
 
-  /* ---------- 代数 / 自动布局 ---------- */
-  function generation(id, seen, guard) {
-    if (seen[id] != null) return seen[id];
-    if (guard > 200) return 0;
-    var m = get(id);
-    if (!m) return 0;
-    var f = m.father_id && get(m.father_id), mo = m.mother_id && get(m.mother_id);
-    if (!f && !mo) { seen[id] = 0; return 0; }
-    var g = 0;
-    if (f) g = Math.max(g, generation(f.id, seen, guard + 1) + 1);
-    if (mo) g = Math.max(g, generation(mo.id, seen, guard + 1) + 1);
-    seen[id] = g; return g;
-  }
-  function autoLayout() {
-    var seen = {};
-    members.forEach(function (m) { generation(m.id, seen, 0); });
-    var groups = {};
-    members.forEach(function (m) { var g = seen[m.id] || 0; (groups[g] = groups[g] || []).push(m); });
-    var vGap = 150, hGap = 170, ox = 80, oy = 80;
-    Object.keys(groups).forEach(function (g) {
-      var list = groups[g].sort(function (a, b) { return ((a.order || 1) - (b.order || 1)) || (a.name < b.name ? -1 : 1); });
-      list.forEach(function (m, i) {
-        if (!posMap[m.id]) posMap[m.id] = { x: ox + i * hGap, y: oy + (g * 1) * vGap };
+  /* ---------- 自动布局：树枝状（同代一列，夫妻并肩，子女在右） ---------- */
+  function autoLayout(force) {
+    if (!members.length) return;
+    var unitOf = {}, units = [];
+
+    members.forEach(function (m) {
+      var u = { uid: units.length, ids: [m.id], members: [m], kids: [], parent: null, row: null, depth: null, anchor: m, partner: null };
+      unitOf[m.id] = u; units.push(u);
+    });
+
+    // 夫妻合并为一个家庭单元
+    members.forEach(function (m) {
+      (m.spouse_ids || []).forEach(function (sid) {
+        var a = unitOf[m.id], b = unitOf[sid];
+        if (!a || !b || a === b) return;
+        b.ids.forEach(function (id) { unitOf[id] = a; });
+        a.ids = a.ids.concat(b.ids);
+        a.members = a.members.concat(b.members);
+        units.splice(units.indexOf(b), 1);
+      });
+    });
+
+    // 代表成员：优先父母在谱中者，其次男性；另一位贴左侧
+    units.forEach(function (u) {
+      var best = u.members[0], bestScore = -1;
+      u.members.forEach(function (m) {
+        var hasP = !!(m.father_id && get(m.father_id)) || !!(m.mother_id && get(m.mother_id));
+        var score = (hasP ? 2 : 0) + (m.gender === 'male' ? 1 : 0);
+        if (score > bestScore) { bestScore = score; best = m; }
+      });
+      u.anchor = best;
+      u.partner = u.members.filter(function (m) { return m.id !== best.id; })[0] || null;
+    });
+
+    // 父子关系归到单元（优先父亲）
+    units.forEach(function (u) {
+      var p = null;
+      u.ids.forEach(function (id) {
+        if (p) return;
+        var m = get(id); if (!m) return;
+        if (m.father_id && unitOf[m.father_id] && unitOf[m.father_id] !== u) p = unitOf[m.father_id];
+        else if (m.mother_id && unitOf[m.mother_id] && unitOf[m.mother_id] !== u) p = unitOf[m.mother_id];
+      });
+      u.parent = p || null;
+      if (p) p.kids.push(u);
+    });
+
+    // 代数
+    function depthOf(u, seen, guard) {
+      if (u.depth != null) return u.depth;
+      if (guard > 200 || seen[u.uid]) return 0;
+      seen[u.uid] = true;
+      u.depth = (u.parent && !seen[u.parent.uid]) ? depthOf(u.parent, seen, guard + 1) + 1 : 0;
+      return u.depth;
+    }
+    units.forEach(function (u) { depthOf(u, {}, 0); });
+
+    // 行号：同代按父母位置排序（减少交叉），一代内依次占行
+    var byDepth = {};
+    units.forEach(function (u) { (byDepth[u.depth] = byDepth[u.depth] || []).push(u); });
+    Object.keys(byDepth).sort(function (a, b) { return a - b; }).forEach(function (dk) {
+      var list = byDepth[dk];
+      list.forEach(function (u, i) { u._i = i; });
+      list.sort(function (a, b) {
+        var ra = a.parent ? a.parent.row : -1;
+        var rb = b.parent ? b.parent.row : -1;
+        if (ra !== rb) return ra - rb;
+        return a._i - b._i;
+      });
+      list.forEach(function (u, i) { u.row = i; });
+    });
+
+    // 落坐标（转换为节点左上角）
+    units.forEach(function (u) {
+      var d = u.depth || 0, r = u.row;
+      u.members.forEach(function (m) {
+        if (!force && posMap[m.id]) return;   // 保留已保存/已拖动的位置
+        var isPartner = u.partner && m.id === u.partner.id;
+        var cx = (d - (isPartner ? 0.55 : 0)) * COL_W + PAD;
+        var cy = r * ROW_H + PAD;
+        posMap[m.id] = { x: cx - NODE_W / 2, y: cy - NODE_H / 2 };
       });
     });
   }
@@ -100,10 +161,9 @@
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     members.forEach(function (m) {
       var c = center[m.id]; if (!c) return;
-      ['father_id', 'mother_id'].forEach(function (pk) {
-        var pid = m[pk]; if (!pid || !get(pid) || !center[pid]) return;
-        drawLine(center[pid], c, PARENT_COLOR, 'parent', pid, m.id);
-      });
+      // 每个子女只画一条父/母线（优先父亲），避免夫妻两条线重叠
+      var pid = m.father_id || m.mother_id;
+      if (pid && get(pid) && center[pid]) drawLine(center[pid], c, PARENT_COLOR, 'parent', pid, m.id);
     });
     // 姻亲（每对只画一次）
     var done = {};
@@ -118,20 +178,37 @@
   }
   function c2(id) { return center[id]; }
   function drawLine(a, b, color, type, from, to) {
+    var d;
+    if (type === 'parent') {
+      // 折角分支：父辈右缘 → 竖向主干 → 子辈左缘
+      var dir = b.x >= a.x ? 1 : -1;
+      var sx = a.x + dir * (NODE_W / 2), ex = b.x - dir * (NODE_W / 2);
+      if (Math.abs(ex - sx) < 24) {
+        d = 'M' + sx + ',' + a.y + ' L' + ex + ',' + b.y;
+      } else {
+        var mx = sx + (ex - sx) * 0.55;
+        d = 'M' + sx + ',' + a.y + ' H' + mx + ' V' + b.y + ' H' + ex;
+      }
+    } else {
+      // 姻亲：中心到中心（中间被卡片遮住，只露出两人之间的红线）
+      d = 'M' + a.x + ',' + a.y + ' L' + b.x + ',' + b.y;
+    }
+
     var g = document.createElementNS(SVGNS, 'g');
     g.setAttribute('class', 'ed-line');
     g.dataset.type = type; g.dataset.from = from; g.dataset.to = to;
-    // 透明加宽命中区
-    var hit = document.createElementNS(SVGNS, 'line');
-    hit.setAttribute('x1', a.x); hit.setAttribute('y1', a.y);
-    hit.setAttribute('x2', b.x); hit.setAttribute('y2', b.y);
+
+    var hit = document.createElementNS(SVGNS, 'path');
+    hit.setAttribute('d', d); hit.setAttribute('fill', 'none');
     hit.setAttribute('stroke', 'transparent'); hit.setAttribute('stroke-width', '14');
-    // 可见线
-    var line = document.createElementNS(SVGNS, 'line');
-    line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
-    line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
-    line.setAttribute('stroke', color); line.setAttribute('stroke-width', type === 'marriage' ? '2.5' : '2.5');
+
+    var line = document.createElementNS(SVGNS, 'path');
+    line.setAttribute('d', d); line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', type === 'marriage' ? '2.5' : '1.8');
     line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('stroke-linejoin', 'round');
+
     g.appendChild(hit); g.appendChild(line);
     g.addEventListener('click', function (e) { e.stopPropagation(); onLineClick(type, from, to); });
     svg.appendChild(g);
@@ -364,7 +441,8 @@
   /* ---------- 初始化 ---------- */
   members.forEach(function (m) {
     if (m.pos && typeof m.pos.x === 'number' && typeof m.pos.y === 'number') {
-      posMap[m.id] = { x: m.pos.x, y: m.pos.y };
+      // 存的是节点中心，换成左上角
+      posMap[m.id] = { x: m.pos.x - NODE_W / 2, y: m.pos.y - NODE_H / 2 };
     }
   });
   autoLayout();          // 仅填充缺少 pos 的节点

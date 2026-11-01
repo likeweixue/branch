@@ -34,3 +34,12 @@ function zp_default_settings() {
 if (!is_dir(DATA_DIR)) {
     @mkdir(DATA_DIR, 0755, true);
 }
+
+/**
+ * 静态资源 URL（带文件修改时间，改完样式/脚本无需手动清缓存）
+ */
+function zp_asset($rel) {
+    $abs = APP_ROOT . '/' . ltrim($rel, '/');
+    $v = @filemtime($abs);
+    return htmlspecialchars($rel . '?v=' . ($v ?: '1'));
+}
