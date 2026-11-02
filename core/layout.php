@@ -26,6 +26,7 @@ function zp_nav_items() {
     return [
         'tree'    => '族谱',
         'quotes'  => '语录',
+        'album'   => '相册',
         'history' => '历史',
     ];
 }

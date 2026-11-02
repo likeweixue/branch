@@ -228,6 +228,27 @@
     ini.textContent = (m.name || '?').slice(0, 1);
     g.appendChild(ini);
 
+    // 头像（后台填了图床链接才画）：圆形裁切，失败时露出下面的首字
+    if (m.avatar) {
+      var cid = 'avc-' + m.id;
+      var clip = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+      clip.setAttribute('id', cid);
+      var cc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      cc.setAttribute('cx', -NODE_W / 2 + 30); cc.setAttribute('cy', 0); cc.setAttribute('r', 20);
+      clip.appendChild(cc);
+      g.appendChild(clip);
+      var img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+      img.setAttribute('href', m.avatar);
+      img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', m.avatar);
+      img.setAttribute('x', -NODE_W / 2 + 10); img.setAttribute('y', -20);
+      img.setAttribute('width', 40); img.setAttribute('height', 40);
+      img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+      img.setAttribute('clip-path', 'url(#' + cid + ')');
+      img.setAttribute('class', 'nd-photo');
+      img.setAttribute('referrerpolicy', 'no-referrer');
+      g.appendChild(img);
+    }
+
     var name = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     name.setAttribute('class', 'nd-name');
     name.setAttribute('x', -NODE_W / 2 + 58); name.setAttribute('y', -4);
@@ -260,7 +281,12 @@
     if (m.death) life += ' ～ ' + m.death;
     var relText = call ? call : (me ? '（无直接血缘路径）' : '登录后显示称呼');
     tip.innerHTML =
-      '<div class="t-name">' + esc(m.name) + (m.zi_bei ? '<span class="t-zb">' + esc(m.zi_bei) + '</span>' : '') + '</div>' +
+      '<div class="t-head">' +
+        (m.avatar
+          ? '<img class="t-ava" src="' + esc(m.avatar) + '" alt="" referrerpolicy="no-referrer">'
+          : '<span class="t-ava is-empty">' + esc((m.name || '?').slice(0, 1)) + '</span>') +
+        '<div class="t-name">' + esc(m.name) + (m.zi_bei ? '<span class="t-zb">' + esc(m.zi_bei) + '</span>' : '') + '</div>' +
+      '</div>' +
       '<div class="t-row"><span>性别</span><b>' + (m.gender === 'female' ? '女' : '男') + '</b></div>' +
       '<div class="t-row"><span>生卒</span><b>' + esc(life) + '</b></div>' +
       '<div class="t-row"><span>字辈</span><b>' + esc(zb) + '</b></div>' +

@@ -20,7 +20,8 @@ $settings = zp_load_json(SETTINGS_FILE, zp_default_settings());
 $users_local = zp_load_json(USERS_FILE, []);
 $quotes_local = zp_load_json(QUOTES_FILE, []);
 $events_local = zp_load_json(EVENTS_FILE, []);
-$zp_admin = ['members' => $members, 'settings' => $settings, 'quotes' => $quotes_local, 'events' => $events_local];
+$photos_local = zp_load_json(PHOTOS_FILE, []);
+$zp_admin = ['members' => $members, 'settings' => $settings, 'quotes' => $quotes_local, 'events' => $events_local, 'photos' => $photos_local];
 
 /* 服务端渲染辅助：取成员名 / 生成下拉选项（即便 JS 未加载也能显示数据） */
 function zp_name($ms, $id) {
@@ -48,6 +49,16 @@ function zp_trunc($s, $n = 46) {
         return implode('', array_slice($chars, 0, $n)) . '…';
     }
     return $s;
+}
+
+/** 头像缩略图（有链接用图片，无链接用首字） */
+function zp_ava_html($m, $cls = 'ad-thumb') {
+    $url = zp_clean_url($m['avatar'] ?? '');
+    $ini = zp_first_char($m['name'] ?? '?');
+    if ($url !== '') {
+        return '<span class="' . $cls . '"><img src="' . htmlspecialchars($url) . '" alt="" loading="lazy" referrerpolicy="no-referrer"></span>';
+    }
+    return '<span class="' . $cls . ' is-empty"><i>' . htmlspecialchars($ini) . '</i></span>';
 }
 ?>
 <!doctype html>
@@ -88,6 +99,18 @@ function zp_trunc($s, $n = 46) {
   .ad-muted{color:var(--muted);font-size:12px;font-family:var(--mono);letter-spacing:.04em;}
   .ad-sel-member{font-size:12px;color:var(--muted);}
   .ad-top a{text-decoration:none;}
+  /* 头像 / 图片链接 */
+  .ad-ava-row{display:flex;gap:14px;align-items:flex-start;}
+  .ad-ava-prev{width:74px;height:74px;flex:0 0 74px;border-radius:10px;overflow:hidden;background:var(--bg-2);
+    border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;}
+  .ad-ava-prev img{width:100%;height:100%;object-fit:cover;display:block;}
+  .ad-ava-input{flex:1;min-width:0;}
+  .ad-ava-tip{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;}
+  .ad-thumb{width:34px;height:34px;border-radius:8px;overflow:hidden;background:var(--accent-soft);
+    display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;}
+  .ad-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .ad-thumb.is-empty i{font-style:normal;font-family:var(--din);font-weight:700;font-size:14px;color:var(--accent);}
+  .ad-thumb-wide{width:58px;height:44px;border-radius:6px;}
   @media (max-width:760px){
     .ad-wrap{margin-top:66px;padding:0 12px;}
     .ad-panel{padding:14px;}
@@ -103,6 +126,7 @@ function zp_trunc($s, $n = 46) {
   <nav class="zp-nav">
     <a href="index.php">族谱</a>
     <a href="quotes.php">语录</a>
+    <a href="album.php">相册</a>
     <a href="history.php">历史</a>
   </nav>
   <div class="spacer"></div>
@@ -119,6 +143,7 @@ function zp_trunc($s, $n = 46) {
     <button data-tab="users">用户管理</button>
     <button data-tab="quotes">语录管理</button>
     <button data-tab="history">历史管理</button>
+    <button data-tab="album">相册管理</button>
   </div>
 
   <!-- 成员管理 -->
@@ -137,6 +162,16 @@ function zp_trunc($s, $n = 46) {
       <div><label>母亲</label><select id="m_mother"><?= zp_opt($members, '', true) ?></select></div>
       <div class="full"><label>配偶（两姓结姻 · 红线，可多选）</label><div class="ad-chk" id="m_spouse"><?php foreach ($members as $m): ?><label><input type="checkbox" id="sp_<?= $m['id'] ?>" value="<?= $m['id'] ?>"><?= htmlspecialchars($m['name']) . ($m['zi_bei'] ? '（' . htmlspecialchars($m['zi_bei']) . '）' : '') ?></label><?php endforeach; ?></div></div>
       <div><label>同辈排行（数字，越小越年长）</label><input id="m_order" type="number" value="1" min="1"></div>
+      <div class="full">
+        <label>头像链接（图床地址，可留空）</label>
+        <div class="ad-ava-row">
+          <div class="ad-ava-prev" id="m_avatar_prev"><span>未设置</span></div>
+          <div class="ad-ava-input">
+            <input id="m_avatar" type="text" placeholder="https://图床域名/xxx.jpg">
+            <div class="ad-ava-tip">支持任意图床直链（http/https）；留空则显示姓名首字。</div>
+          </div>
+        </div>
+      </div>
       <div class="full"><label>简介 / 备注</label><textarea id="m_bio" placeholder="生平、事迹等"></textarea></div>
       <div class="full" style="display:flex;gap:10px;justify-content:flex-end">
         <button class="zp-btn ghost" id="mCancel">取消</button>
@@ -144,7 +179,7 @@ function zp_trunc($s, $n = 46) {
       </div>
     </div>
     <table class="ad-t">
-      <thead><tr><th>姓名</th><th>字辈</th><th>性别</th><th>生卒</th><th>父母</th><th>配偶</th><th>操作</th></tr></thead>
+      <thead><tr><th>头像</th><th>姓名</th><th>字辈</th><th>性别</th><th>生卒</th><th>父母</th><th>配偶</th><th>操作</th></tr></thead>
       <tbody id="mList"><?php foreach ($members as $m):
         $sp = [];
         foreach (($m['spouse_ids'] ?? []) as $sid) { $sp[] = zp_name($members, $sid); }
@@ -155,6 +190,7 @@ function zp_trunc($s, $n = 46) {
         $birth = ($m['birth'] ?? '') ?: '?';
         $life = $birth . (!empty($m['death']) ? ' ～ ' . htmlspecialchars($m['death']) : '');
       ?><tr>
+        <td><?= zp_ava_html($m) ?></td>
         <td><?= htmlspecialchars($m['name']) ?></td>
         <td><?= $m['zi_bei'] ? htmlspecialchars($m['zi_bei']) : '—' ?></td>
         <td><?= $gender ?></td>
@@ -289,6 +325,52 @@ function zp_trunc($s, $n = 46) {
         <td><?= trim($ev['category'] ?? '') !== '' ? zp_h($ev['category']) : '—' ?></td>
         <td><?= $memNames ? zp_h(implode('、', $memNames)) : '—' ?></td>
         <td><span class="ad-act" data-evedit="<?= zp_h($ev['id']) ?>">编辑</span><span class="ad-act del" data-evdel="<?= zp_h($ev['id']) ?>">删除</span></td>
+      </tr><?php endforeach; ?></tbody>
+    </table>
+  </section>
+
+  <!-- 相册管理 -->
+  <section class="ad-panel" id="tab-album">
+    <h2>相册管理</h2>
+    <div class="ad-row"><button class="zp-btn accent" id="adAddPhoto">+ 添加照片</button>
+      <span class="ad-muted">只存图床直链，不占本站空间；前台「相册」按错位照片墙展示，滚轮缩放、点击放大。</span>
+      <a class="zp-btn ghost ad-top" href="album.php" style="text-decoration:none">查看前台 →</a></div>
+    <div class="ad-form" id="adPhotoForm" style="display:none">
+      <input type="hidden" id="ph_id">
+      <div class="full"><label>图片链接 *（图床直链）</label>
+        <div class="ad-ava-row">
+          <div class="ad-ava-prev ad-ph-prev" id="ph_prev"><span>预览</span></div>
+          <div class="ad-ava-input">
+            <input id="ph_url" type="text" placeholder="https://i.imgur.com/xxxx.jpg">
+            <div class="ad-ava-tip">支持 jpg / png / webp / gif / avif 直链；粘贴后失焦即可预览。</div>
+          </div>
+        </div>
+      </div>
+      <div><label>标题</label><input id="ph_title" type="text" placeholder="如 1985 年春节全家福"></div>
+      <div><label>拍摄时间（可空）</label><input id="ph_date" type="text" placeholder="如 1985 或 1985-02"></div>
+      <div><label>地点（可空）</label><input id="ph_place" type="text" placeholder="如 老宅门前"></div>
+      <div class="full"><label>照片里的人（可多选）</label><div class="ad-chk" id="ph_members"></div></div>
+      <div class="full"><label>说明 / 备注</label><textarea id="ph_note" placeholder="当时的场景、谁拍的、背后的小故事…"></textarea></div>
+      <div class="full" style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="zp-btn ghost" id="phCancel">取消</button>
+        <button class="zp-btn accent" id="phSave">保存照片</button>
+      </div>
+    </div>
+    <table class="ad-t">
+      <thead><tr><th>照片</th><th>标题</th><th>时间</th><th>地点</th><th>人物</th><th>操作</th></tr></thead>
+      <tbody id="phList"><?php foreach ($photos_local as $ph):
+        $who = [];
+        foreach ((array) ($ph['member_ids'] ?? []) as $mid) {
+            $n = zp_name($members, $mid);
+            if ($n !== '—') $who[] = $n;
+        }
+      ?><tr>
+        <td><?= zp_ava_html(['name' => $ph['title'] ?? '照', 'avatar' => $ph['url'] ?? ''], 'ad-thumb ad-thumb-wide') ?></td>
+        <td><?= zp_h($ph['title'] ?? '') !== '' ? zp_h($ph['title']) : '（未命名）' ?><?= trim($ph['note'] ?? '') !== '' ? '<div class="ad-muted">' . zp_h(zp_trunc($ph['note'], 26)) . '</div>' : '' ?></td>
+        <td><?= trim($ph['date'] ?? '') !== '' ? zp_h($ph['date']) : '待考' ?></td>
+        <td><?= trim($ph['place'] ?? '') !== '' ? zp_h($ph['place']) : '—' ?></td>
+        <td><?= $who ? zp_h(implode('、', $who)) : '—' ?></td>
+        <td><span class="ad-act" data-phedit="<?= zp_h($ph['id']) ?>">编辑</span><span class="ad-act del" data-phdel="<?= zp_h($ph['id']) ?>">删除</span></td>
       </tr><?php endforeach; ?></tbody>
     </table>
   </section>

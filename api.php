@@ -176,6 +176,7 @@ switch ($action) {
         $birth = trim($in['birth'] ?? '');
         $death = trim($in['death'] ?? '');
         $bio = trim($in['bio'] ?? '');
+        $avatar = zp_clean_url($in['avatar'] ?? '');
         $order = (int) ($in['order'] ?? 1);
 
         if ($father_id && !zp_member_by_id($members, $father_id)) $father_id = null;
@@ -203,6 +204,7 @@ switch ($action) {
             'birth'      => $birth,
             'death'      => $death ?: null,
             'bio'        => $bio,
+            'avatar'     => $avatar,
             'father_id'  => $father_id,
             'mother_id'  => $mother_id,
             'spouse_ids' => $spouse_ids,
@@ -288,6 +290,18 @@ switch ($action) {
         }
         unset($ev);
         if ($eTouched) zp_save_json(EVENTS_FILE, $events);
+
+        // 相册：移除照片里对已删成员的标注
+        $photos = zp_load_json(PHOTOS_FILE, []);
+        $pTouched = false;
+        foreach ($photos as &$ph) {
+            if (!empty($ph['member_ids']) && is_array($ph['member_ids']) && in_array($id, $ph['member_ids'], true)) {
+                $ph['member_ids'] = array_values(array_diff($ph['member_ids'], [$id]));
+                $pTouched = true;
+            }
+        }
+        unset($ph);
+        if ($pTouched) zp_save_json(PHOTOS_FILE, $photos);
 
         zp_json(['ok' => true]);
         break;
@@ -519,6 +533,70 @@ switch ($action) {
         zp_json(['ok' => true]);
         break;
 
+    /* ============ 家族相册：列表 / 保存 / 删除（管理员） ============ */
+    case 'list_photos':
+        require_admin();
+        zp_json(['ok' => true, 'photos' => zp_load_json(PHOTOS_FILE, [])]);
+        break;
+
+    case 'save_photo':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $url = zp_clean_url($in['url'] ?? '');
+        if ($url === '') zp_json(['ok' => false, 'msg' => '请填写有效的图片链接（http/https 开头）'], 400);
+
+        $photos  = zp_load_json(PHOTOS_FILE, []);
+        $members = zp_load_json(MEMBERS_FILE, []);
+        $id = trim($in['id'] ?? '');
+        $isNew = ($id === '' || zp_find_row($photos, $id) === null);
+
+        $ids = [];
+        if (isset($in['member_ids']) && is_array($in['member_ids'])) {
+            foreach ($in['member_ids'] as $mid) {
+                if ($mid !== '' && zp_member_by_id($members, $mid) && !in_array($mid, $ids, true)) $ids[] = $mid;
+            }
+        }
+
+        $row = [
+            'url'        => $url,
+            'title'      => trim($in['title'] ?? ''),
+            'date'       => trim($in['date'] ?? ''),
+            'place'      => trim($in['place'] ?? ''),
+            'note'       => trim($in['note'] ?? ''),
+            'member_ids' => $ids,
+        ];
+
+        if ($isNew) {
+            $row = ['id' => zp_next_id($photos, 'p')] + $row;
+            $row['created'] = date('Y-m-d H:i:s');
+            $photos[] = $row;
+        } else {
+            $row = ['id' => $id] + $row;
+            foreach ($photos as &$ph) {
+                if ($ph['id'] === $id) {
+                    $row['created'] = $ph['created'] ?? date('Y-m-d H:i:s');
+                    $ph = $row;
+                    break;
+                }
+            }
+            unset($ph);
+        }
+        zp_save_json(PHOTOS_FILE, $photos);
+        zp_json(['ok' => true, 'id' => $row['id']]);
+        break;
+
+    case 'delete_photo':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $id = trim($in['id'] ?? '');
+        if ($id === '') zp_json(['ok' => false, 'msg' => '缺少 id'], 400);
+        $photos = array_values(array_filter(zp_load_json(PHOTOS_FILE, []), fn($p) => ($p['id'] ?? '') !== $id));
+        zp_save_json(PHOTOS_FILE, $photos);
+        zp_json(['ok' => true]);
+        break;
+
     /* ============ 画布编辑器：整体保存树（含位置与关系） ============ */
     case 'save_tree':
         require_post();
@@ -554,10 +632,10 @@ switch ($action) {
                 if (!in_array($m['id'], $sp2, true)) { $byId[$sid]['spouse_ids'][] = $m['id']; }
             }
         }
-        // 规整字段并保留坐标 pos
+        // 规整字段并保留坐标 pos（无坐标时不写，保持数据干净）
         $out = [];
         foreach ($incoming as $m) {
-            $out[] = [
+            $row = [
                 'id'         => $m['id'],
                 'name'       => $m['name'],
                 'zi_bei'     => trim($m['zi_bei'] ?? ''),
@@ -565,14 +643,16 @@ switch ($action) {
                 'birth'      => trim($m['birth'] ?? ''),
                 'death'      => trim($m['death'] ?? '') ?: null,
                 'bio'        => trim($m['bio'] ?? ''),
+                'avatar'     => zp_clean_url($m['avatar'] ?? ''),
                 'father_id'  => (!empty($m['father_id']) && isset($byId[$m['father_id']])) ? $m['father_id'] : null,
                 'mother_id'  => (!empty($m['mother_id']) && isset($byId[$m['mother_id']])) ? $m['mother_id'] : null,
                 'spouse_ids' => $m['spouse_ids'],
                 'order'      => (int) ($m['order'] ?? 1),
-                'pos'        => (isset($m['pos']) && is_array($m['pos']) && is_numeric($m['pos']['x'] ?? null) && is_numeric($m['pos']['y'] ?? null))
-                    ? ['x' => (float) $m['pos']['x'], 'y' => (float) $m['pos']['y']]
-                    : null,
             ];
+            if (isset($m['pos']) && is_array($m['pos']) && is_numeric($m['pos']['x'] ?? null) && is_numeric($m['pos']['y'] ?? null)) {
+                $row['pos'] = ['x' => (float) $m['pos']['x'], 'y' => (float) $m['pos']['y']];
+            }
+            $out[] = $row;
         }
         zp_save_json(MEMBERS_FILE, $out);
         zp_json(['ok' => true]);

@@ -46,6 +46,7 @@ body { padding-top: 54px; }
 .q-foot { display: flex; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px dashed var(--hair-soft); }
 .q-ava { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
   font-family: var(--din); font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.q-ava-img { object-fit: cover; border: 1px solid var(--hair-soft); }
 .q-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .q-who b { font-family: var(--din); font-size: 14px; letter-spacing: .04em; }
 .q-who span { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted);

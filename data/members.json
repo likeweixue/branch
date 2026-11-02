@@ -7,6 +7,7 @@
         "birth": "",
         "death": null,
         "bio": "父系祖父，姓名待补充。",
+        "avatar": "",
         "father_id": null,
         "mother_id": null,
         "spouse_ids": [
@@ -22,6 +23,7 @@
         "birth": "",
         "death": null,
         "bio": "父系祖母，姓名待补充。",
+        "avatar": "",
         "father_id": null,
         "mother_id": null,
         "spouse_ids": [
@@ -37,6 +39,7 @@
         "birth": "",
         "death": null,
         "bio": "母系外祖父，姓名待补充。",
+        "avatar": "",
         "father_id": null,
         "mother_id": null,
         "spouse_ids": [
@@ -52,6 +55,7 @@
         "birth": "",
         "death": null,
         "bio": "母系外祖母，姓名待补充。",
+        "avatar": "",
         "father_id": null,
         "mother_id": null,
         "spouse_ids": [
@@ -67,6 +71,7 @@
         "birth": "",
         "death": null,
         "bio": "父亲。",
+        "avatar": "",
         "father_id": "m1",
         "mother_id": "m2",
         "spouse_ids": [
@@ -82,6 +87,7 @@
         "birth": "",
         "death": null,
         "bio": "母亲，刘家次女。",
+        "avatar": "",
         "father_id": "m3",
         "mother_id": "m4",
         "spouse_ids": [
@@ -97,6 +103,7 @@
         "birth": "",
         "death": null,
         "bio": "母亲的大姐。",
+        "avatar": "",
         "father_id": "m3",
         "mother_id": "m4",
         "spouse_ids": [
@@ -112,6 +119,7 @@
         "birth": "",
         "death": null,
         "bio": "大姨妈的丈夫。",
+        "avatar": "",
         "father_id": null,
         "mother_id": null,
         "spouse_ids": [
@@ -127,6 +135,7 @@
         "birth": "",
         "death": null,
         "bio": "母亲的三姐。",
+        "avatar": "",
         "father_id": "m3",
         "mother_id": "m4",
         "spouse_ids": [
@@ -142,6 +151,7 @@
         "birth": "",
         "death": null,
         "bio": "三姨妈的丈夫。",
+        "avatar": "",
         "father_id": null,
         "mother_id": null,
         "spouse_ids": [
@@ -157,6 +167,7 @@
         "birth": "",
         "death": null,
         "bio": "母亲的五妹。",
+        "avatar": "",
         "father_id": "m3",
         "mother_id": "m4",
         "spouse_ids": [
@@ -172,6 +183,7 @@
         "birth": "",
         "death": null,
         "bio": "五姨妈的丈夫。",
+        "avatar": "",
         "father_id": null,
         "mother_id": null,
         "spouse_ids": [
@@ -187,6 +199,7 @@
         "birth": "",
         "death": null,
         "bio": "姐姐。",
+        "avatar": "",
         "father_id": "m5",
         "mother_id": "m6",
         "spouse_ids": [],
@@ -200,6 +213,7 @@
         "birth": "",
         "death": null,
         "bio": "本人，本系统的“我”。",
+        "avatar": "",
         "father_id": "m5",
         "mother_id": "m6",
         "spouse_ids": [],

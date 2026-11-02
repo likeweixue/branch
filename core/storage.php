@@ -22,7 +22,7 @@ function zp_save_json($file, $data) {
         @mkdir($dir, 0755, true);
     }
     $tmp = $file . '.tmp';
-    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     $ok = @file_put_contents($tmp, $json, LOCK_EX);
     if ($ok === false) {
         return false;

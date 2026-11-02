@@ -1,0 +1,130 @@
+/* 作者样式里的 display 会盖掉 UA 的 [hidden]，这里显式兜住 */
+[hidden] { display: none !important; }
+
+/* ============================================================================
+ * 家族相册：错位照片墙（瀑布流铺贴）+ 滚轮缩放 + 灯箱
+ * 与族谱页共用 app.css 的变量与顶栏，本文件只负责相册页。
+ * ========================================================================== */
+
+.al-body { overflow: hidden; }
+
+/* —— 画布 —— */
+.al-stage { position: fixed; inset: 54px 0 0 0; overflow: hidden; cursor: grab;
+  background:
+    radial-gradient(1100px 700px at 62% -12%, rgba(255,255,255,.75), rgba(255,255,255,0) 62%),
+    linear-gradient(170deg, var(--bg-2), var(--bg) 40%, var(--bg));
+  touch-action: none; }
+.al-stage.grabbing { cursor: grabbing; }
+
+.al-wall { position: absolute; left: 0; top: 0; will-change: transform; }
+
+.al-item { position: absolute; left: 0; top: 0; margin: 0; box-sizing: border-box; padding: 5px;
+  background: #fff; border-radius: 10px; overflow: hidden; cursor: zoom-in;
+  box-shadow: 0 5px 16px rgba(10, 10, 10, .10), 0 1px 0 rgba(10, 10, 10, .04);
+  transition: transform .22s cubic-bezier(.22, .8, .22, 1), box-shadow .2s ease;
+  will-change: transform; }
+.al-item:hover { box-shadow: 0 14px 34px rgba(10, 10, 10, .20); }
+.al-item:hover .al-cap { opacity: 1; }
+
+.al-img { position: absolute; inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px);
+  object-fit: cover; display: block; border-radius: 6px; background: var(--bg-2); }
+
+.al-cap { position: absolute; left: 5px; right: 5px; bottom: 5px; padding: 26px 10px 9px; border-radius: 0 0 6px 6px;
+  background: linear-gradient(to top, rgba(8, 8, 10, .74), rgba(8, 8, 10, .28) 55%, rgba(8, 8, 10, 0));
+  display: flex; flex-direction: column; gap: 2px; opacity: 0; transition: opacity .18s ease; pointer-events: none; }
+.al-cap b { color: #fff; font-family: var(--din); font-size: 12px; font-weight: 600; letter-spacing: .04em;
+  line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.al-cap span { color: rgba(255, 255, 255, .78); font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.al-item.is-broken { background: var(--bg-2); }
+.al-item.is-broken .al-img { opacity: 0; }
+.al-item.is-broken::after { content: "图片加载失败"; position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--muted); }
+
+/* —— 左上：信息与筛选 —— */
+.al-hud { position: fixed; left: 18px; top: 72px; z-index: 70; width: 302px; max-width: calc(100vw - 36px);
+  padding: 14px 16px 12px; border-radius: 14px; border: 1px solid var(--hair);
+  background: rgba(251, 250, 248, .9); backdrop-filter: blur(10px);
+  box-shadow: 0 12px 32px rgba(10, 10, 10, .09); }
+.al-hud-en { font-family: var(--mono); font-size: 9.5px; letter-spacing: .3em; color: var(--accent); }
+.al-hud h1 { margin: 6px 0 6px; font-family: var(--din); font-size: 24px; letter-spacing: .05em; }
+.al-hud-meta { display: flex; flex-wrap: wrap; gap: 12px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: .08em; color: var(--muted); align-items: baseline; }
+.al-hud-meta b { color: var(--ink); font-size: 12px; }
+.al-hud-pct { margin-left: auto; border: 1px solid var(--hair); border-radius: 20px; padding: 1px 8px; color: var(--ink-soft); }
+.al-search { width: 100%; margin: 11px 0 9px; font: inherit; font-size: 12px; padding: 7px 11px;
+  border: 1px solid var(--hair); border-radius: 18px; background: #fff; color: var(--ink); outline: none; }
+.al-search:focus { border-color: var(--accent); }
+.al-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 88px; overflow: auto; }
+.al-chip { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; padding: 4px 10px; border-radius: 20px;
+  border: 1px solid var(--hair); background: transparent; color: var(--ink-soft); transition: all .16s; }
+.al-chip:hover { border-color: var(--ink-soft); color: var(--ink); }
+.al-chip.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+/* —— 左下：缩放 —— */
+.al-zoom { position: fixed; left: 18px; bottom: 18px; z-index: 70; display: flex; gap: 6px;
+  padding: 6px; border-radius: 12px; border: 1px solid var(--hair); background: rgba(251, 250, 248, .9);
+  backdrop-filter: blur(8px); box-shadow: 0 8px 22px rgba(10, 10, 10, .08); }
+.al-zoom button { width: 34px; height: 32px; border: 1px solid var(--hair); border-radius: 8px; background: #fff;
+  color: var(--ink-soft); font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.al-zoom button:hover { border-color: var(--accent); color: var(--accent); }
+
+.al-hint { position: fixed; right: 18px; bottom: 20px; z-index: 70; font-family: var(--mono); font-size: 10px;
+  letter-spacing: .1em; color: var(--muted); background: rgba(251, 250, 248, .8); border: 1px solid var(--hair-soft);
+  padding: 6px 11px; border-radius: 20px; backdrop-filter: blur(6px); }
+.al-admin { position: fixed; right: 18px; bottom: 58px; z-index: 70; text-decoration: none;
+  font-family: var(--din); font-size: 12px; letter-spacing: .1em; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 20px; padding: 6px 13px; background: rgba(251, 250, 248, .86); }
+.al-admin:hover { background: var(--accent); color: #fff; }
+
+/* —— 空态 —— */
+.al-blank { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; padding: 40px 22px; gap: 2px; }
+.al-blank-ic { font-size: 40px; color: var(--accent); opacity: .5; line-height: 1; }
+.al-blank h3 { font-family: var(--din); font-size: 19px; letter-spacing: .04em; margin: 12px 0 8px; }
+.al-blank p { color: var(--muted); font-size: 13px; line-height: 1.9; margin: 0 0 18px; max-width: 420px; }
+.al-blank .zp-btn { text-decoration: none; }
+
+/* —— 无 JS 兜底 —— */
+.al-noscript { position: absolute; inset: 64px 18px 18px; overflow: auto; padding-top: 74px; }
+.al-noscript { display: flex; flex-wrap: wrap; gap: 12px; align-content: flex-start; }
+.al-noscript figure { margin: 0; width: 220px; background: #fff; padding: 5px; border-radius: 10px; box-shadow: 0 5px 16px rgba(10,10,10,.1); }
+.al-noscript img { width: 100%; height: 160px; object-fit: cover; border-radius: 6px; display: block; }
+.al-noscript figcaption { font-family: var(--din); font-size: 12px; padding: 6px 4px 2px; color: var(--ink-soft); }
+
+/* —— 灯箱 —— */
+.al-lb { position: fixed; inset: 0; z-index: 300; background: rgba(9, 9, 11, .93); backdrop-filter: blur(6px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 26px 60px; }
+.al-lb-stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; width: 100%; }
+.al-lb-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .6); background: #14141a; }
+.al-lb-bar { flex: 0 0 auto; text-align: center; max-width: 760px; }
+.al-lb-t { color: #fff; font-family: var(--din); font-size: 17px; letter-spacing: .04em; }
+.al-lb-m { color: rgba(255, 255, 255, .6); font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; margin-top: 6px; }
+.al-lb-n { color: rgba(255, 255, 255, .78); font-size: 13px; line-height: 1.8; margin-top: 8px; }
+.al-lb-count { position: absolute; left: 24px; top: 20px; color: rgba(255, 255, 255, .55);
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; }
+.al-lb-x { position: absolute; right: 20px; top: 14px; width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .22); background: transparent; color: #fff; font-size: 15px; }
+.al-lb-x:hover { background: rgba(255, 255, 255, .12); }
+.al-lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .06); color: #fff; font-size: 26px;
+  line-height: 1; display: flex; align-items: center; justify-content: center; }
+.al-lb-nav:hover { background: rgba(255, 255, 255, .16); }
+.al-lb-nav.prev { left: 14px; }
+.al-lb-nav.next { right: 14px; }
+
+/* —— 小屏 —— */
+@media (max-width: 760px) {
+  .al-hud { left: 10px; right: 10px; top: 64px; width: auto; padding: 10px 12px; }
+  .al-hud h1 { font-size: 19px; margin: 4px 0; }
+  .al-chips { max-height: 56px; }
+  .al-hint { display: none; }
+  .al-admin { bottom: 66px; right: 10px; }
+  .al-zoom { left: 10px; bottom: 10px; }
+  .al-lb { padding: 60px 12px 18px; }
+  .al-lb-nav { width: 38px; height: 38px; font-size: 22px; }
+  .al-lb-nav.prev { left: 4px; }
+  .al-lb-nav.next { right: 4px; }
+}

@@ -27,6 +27,14 @@ function zp_q_speaker($q, $byId) {
     return trim($q['speaker'] ?? '') !== '' ? $q['speaker'] : '佚名';
 }
 
+/** 语录讲述人的头像链接（讲述人是家族成员且有头像时才有） */
+function zp_q_avatar($q, $byId) {
+    if (!empty($q['member_id']) && isset($byId[$q['member_id']])) {
+        return zp_clean_url($byId[$q['member_id']]['avatar'] ?? '');
+    }
+    return '';
+}
+
 // 讲述人去重（用于筛选）
 $speakers = [];
 foreach ($quotes as $q) {
@@ -80,12 +88,17 @@ foreach ($quotes as $q) {
       if (!empty($q['year']))     $meta[] = $q['year'];
       if (!empty($q['context']))  $meta[] = $q['context'];
       $ini  = zp_first_char($sp);
+      $ava  = zp_q_avatar($q, $byId);
     ?>
     <article class="q-card" data-speaker="<?= zp_h($sp) ?>">
       <div class="q-mark" aria-hidden="true">“</div>
       <blockquote class="q-text"><?= nl2br(zp_h($q['text'] ?? '')) ?></blockquote>
       <div class="q-foot">
-        <div class="q-ava"><?= zp_h($ini) ?></div>
+        <?php if ($ava !== ''): ?>
+          <img class="q-ava q-ava-img" src="<?= zp_h($ava) ?>" alt="" loading="lazy" referrerpolicy="no-referrer">
+        <?php else: ?>
+          <div class="q-ava"><?= zp_h($ini) ?></div>
+        <?php endif; ?>
         <div class="q-who">
           <b><?= zp_h($sp) ?></b>
           <?php if ($meta): ?><span><?= zp_h(implode(' · ', $meta)) ?></span><?php endif; ?>

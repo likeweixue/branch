@@ -14,6 +14,7 @@ data/*
 !data/members.json
 !data/quotes.json
 !data/events.json
+!data/photos.json
 !data/settings.json
 
 # Local preview runtime: portable PHP binary + logs (downloaded by start.command)

@@ -17,6 +17,28 @@
   function byId(id) { return STATE.members.find(function (m) { return m.id === id; }); }
   function nameOf(id) { var m = byId(id); return m ? m.name : '—'; }
 
+  /* ---------- 通用：图片预览（头像 / 相册链接） ---------- */
+  function avaCell(url, name) {
+    if (url) return '<span class="ad-thumb"><img src="' + esc(url) + '" alt="" loading="lazy" referrerpolicy="no-referrer"></span>';
+    return '<span class="ad-thumb is-empty"><i>' + esc(String(name || '?').slice(0, 1)) + '</i></span>';
+  }
+  function bindPreview(inputId, prevId, phText) {
+    var input = document.getElementById(inputId);
+    var prev = document.getElementById(prevId);
+    if (!input || !prev) return;
+    function draw() {
+      var u = input.value.trim();
+      if (!u) { prev.innerHTML = '<span>' + esc(phText) + '</span>'; return; }
+      prev.innerHTML = '<img src="' + esc(u) + '" alt="">';
+      var img = prev.querySelector('img');
+      img.addEventListener('error', function () { prev.innerHTML = '<span>加载失败</span>'; });
+    }
+    input.addEventListener('input', draw);
+    input.addEventListener('change', draw);
+    input.__draw = draw;
+    draw();
+  }
+
   /* ---------- 标签切换（支持 #quotes / #history 直达） ---------- */
   function activateTab(name) {
     var btn = document.querySelector('.ad-nav button[data-tab="' + name + '"]');
@@ -69,6 +91,7 @@
       var spouse = (m.spouse_ids || []).map(nameOf).join('、') || '—';
       var parents = [m.father_id ? nameOf(m.father_id) : null, m.mother_id ? nameOf(m.mother_id) : null].filter(Boolean).join(' / ') || '—';
       tr.innerHTML =
+        '<td>' + avaCell(m.avatar, m.name) + '</td>' +
         '<td>' + esc(m.name) + '</td>' +
         '<td>' + (m.zi_bei ? esc(m.zi_bei) : '—') + '</td>' +
         '<td>' + (m.gender === 'female' ? '女' : '男') + '</td>' +
@@ -107,15 +130,18 @@
       document.getElementById('m_mother').value = m.mother_id || '';
       document.getElementById('m_order').value = m.order || 1;
       document.getElementById('m_bio').value = m.bio || '';
+      document.getElementById('m_avatar').value = m.avatar || '';
       fillSpouseBox(document.getElementById('m_spouse'), id, m.spouse_ids || []);
+      if (document.getElementById('m_avatar').__draw) document.getElementById('m_avatar').__draw();
     } else {
       document.getElementById('m_id').value = '';
-      ['m_name','m_zibei','m_birth','m_death','m_bio'].forEach(function (k) { document.getElementById(k).value = ''; });
+      ['m_name','m_zibei','m_birth','m_death','m_bio','m_avatar'].forEach(function (k) { document.getElementById(k).value = ''; });
       document.getElementById('m_gender').value = 'male';
       document.getElementById('m_father').value = '';
       document.getElementById('m_mother').value = '';
       document.getElementById('m_order').value = 1;
       fillSpouseBox(document.getElementById('m_spouse'), null, []);
+      if (document.getElementById('m_avatar').__draw) document.getElementById('m_avatar').__draw();
     }
     f.scrollIntoView({ behavior: 'smooth' });
   }
@@ -137,6 +163,7 @@
       spouse_ids: spouse,
       order: parseInt(document.getElementById('m_order').value, 10) || 1,
       bio: document.getElementById('m_bio').value.trim(),
+      avatar: document.getElementById('m_avatar').value.trim(),
     };
     if (!data.name) { toast('请填写姓名'); return; }
     api('save_member', data, function (r) { if (r.ok) { toast('已保存'); document.getElementById('adMemberForm').style.display = 'none'; loadAll(); } else toast(r.msg || '保存失败'); });
@@ -376,6 +403,88 @@
     });
   });
 
+  /* ---------- 相册管理 ---------- */
+  var photos = (STATE.photos || []).slice();
+
+  function fillPhotoMembers(selected) {
+    var box = document.getElementById('ph_members');
+    if (!box) return;
+    box.innerHTML = '';
+    STATE.members.forEach(function (m) {
+      var lab = document.createElement('label');
+      lab.innerHTML = '<input type="checkbox" value="' + m.id + '"' + (selected.indexOf(m.id) !== -1 ? ' checked' : '') + '>' + esc(m.name);
+      box.appendChild(lab);
+    });
+  }
+  function renderPhotos() {
+    var tb = document.getElementById('phList');
+    if (!tb) return;
+    tb.innerHTML = '';
+    photos.forEach(function (ph) {
+      var who = (ph.member_ids || []).map(function (id) { return byId(id) ? byId(id).name : null; }).filter(Boolean).join('、') || '—';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + avaCell(ph.url, ph.title || '照').replace('ad-thumb', 'ad-thumb ad-thumb-wide') + '</td>' +
+        '<td>' + (String(ph.title || '').trim() ? esc(ph.title) : '（未命名）') +
+          (String(ph.note || '').trim() ? '<div class="ad-muted">' + esc(cut(ph.note, 26)) + '</div>' : '') + '</td>' +
+        '<td>' + (String(ph.date || '').trim() ? esc(ph.date) : '待考') + '</td>' +
+        '<td>' + (String(ph.place || '').trim() ? esc(ph.place) : '—') + '</td>' +
+        '<td>' + esc(who) + '</td>' +
+        '<td><span class="ad-act" data-phedit="' + ph.id + '">编辑</span><span class="ad-act del" data-phdel="' + ph.id + '">删除</span></td>';
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll('[data-phedit]').forEach(function (e) {
+      e.addEventListener('click', function () { openPhotoForm(e.dataset.phedit); });
+    });
+    tb.querySelectorAll('[data-phdel]').forEach(function (e) {
+      e.addEventListener('click', function () {
+        if (!confirm('确定从相册删除这张照片？（只删链接，不影响图床上的原图）')) return;
+        api('delete_photo', { id: e.dataset.phdel }, function (r) {
+          if (r.ok) { toast('已删除'); loadAll(); } else toast(r.msg || '删除失败');
+        });
+      });
+    });
+  }
+  function openPhotoForm(id) {
+    var f = document.getElementById('adPhotoForm');
+    if (!f) return;
+    var ph = id ? photos.filter(function (x) { return x.id === id; })[0] : null;
+    f.style.display = 'grid';
+    document.getElementById('ph_id').value = ph ? ph.id : '';
+    document.getElementById('ph_url').value = ph ? (ph.url || '') : '';
+    document.getElementById('ph_title').value = ph ? (ph.title || '') : '';
+    document.getElementById('ph_date').value = ph ? (ph.date || '') : '';
+    document.getElementById('ph_place').value = ph ? (ph.place || '') : '';
+    document.getElementById('ph_note').value = ph ? (ph.note || '') : '';
+    fillPhotoMembers(ph ? (ph.member_ids || []) : []);
+    if (document.getElementById('ph_url').__draw) document.getElementById('ph_url').__draw();
+    (ph ? document.getElementById('ph_title') : document.getElementById('ph_url')).focus();
+    f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  var addPhotoBtn = document.getElementById('adAddPhoto');
+  if (addPhotoBtn) addPhotoBtn.addEventListener('click', function () { openPhotoForm(null); });
+  var phCancel = document.getElementById('phCancel');
+  if (phCancel) phCancel.addEventListener('click', function () { document.getElementById('adPhotoForm').style.display = 'none'; });
+  var phSave = document.getElementById('phSave');
+  if (phSave) phSave.addEventListener('click', function () {
+    var ids = [];
+    document.querySelectorAll('#ph_members input:checked').forEach(function (c) { ids.push(c.value); });
+    var data = {
+      id: document.getElementById('ph_id').value,
+      url: document.getElementById('ph_url').value.trim(),
+      title: document.getElementById('ph_title').value.trim(),
+      date: document.getElementById('ph_date').value.trim(),
+      place: document.getElementById('ph_place').value.trim(),
+      note: document.getElementById('ph_note').value.trim(),
+      member_ids: ids,
+    };
+    if (!data.url) { toast('请填写图片链接'); return; }
+    api('save_photo', data, function (r) {
+      if (r.ok) { toast('已保存'); document.getElementById('adPhotoForm').style.display = 'none'; loadAll(); }
+      else toast(r.msg || '保存失败');
+    });
+  });
+
   /* ---------- 全局 ---------- */
   document.getElementById('zpLogout').addEventListener('click', function () { api('logout', {}, function () { location.href = 'index.php'; }); });
 
@@ -386,13 +495,17 @@
     api('list_users', {}, function (r) { if (r.ok) { users = r.users; renderUsers(); } });
     api('list_quotes', {}, function (r) { if (r.ok) { quotes = r.quotes; renderQuotes(); } });
     api('list_events', {}, function (r) { if (r.ok) { events = r.events; renderEvents(); } });
+    api('list_photos', {}, function (r) { if (r.ok) { photos = r.photos; renderPhotos(); } });
   }
 
   // 初始渲染
   fillZibeiDatalist();
+  bindPreview('m_avatar', 'm_avatar_prev', '未设置');
+  bindPreview('ph_url', 'ph_prev', '预览');
   renderMembers();
   renderQuotes();
   renderEvents();
+  renderPhotos();
   var hashTab = (location.hash || '').replace(/^#/, '');
   if (hashTab) activateTab(hashTab);
   loadAll(); // 拉取最新成员、用户、语录、历史

@@ -1,0 +1,111 @@
+[
+    {
+        "id": "p1",
+        "url": "https://picsum.photos/seed/zupu-family-1949/1200/900",
+        "title": "示例 · 祖辈合影",
+        "date": "",
+        "place": "",
+        "note": "把老照片扫描后传到图床，链接填在这里。",
+        "member_ids": [
+            "m1",
+            "m2"
+        ],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p2",
+        "url": "https://picsum.photos/seed/zupu-family-1985/900/1250",
+        "title": "示例 · 父辈成家",
+        "date": "",
+        "place": "",
+        "note": "示例条目，可在后台替换为真实照片。",
+        "member_ids": [
+            "m5",
+            "m6"
+        ],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p3",
+        "url": "https://picsum.photos/seed/zupu-newyear/1300/850",
+        "title": "示例 · 年节团聚",
+        "date": "",
+        "place": "",
+        "note": "",
+        "member_ids": [],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p4",
+        "url": "https://picsum.photos/seed/zupu-oldhouse/980/1400",
+        "title": "示例 · 老屋",
+        "date": "",
+        "place": "",
+        "note": "",
+        "member_ids": [],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p5",
+        "url": "https://picsum.photos/seed/zupu-letters/1350/900",
+        "title": "示例 · 旧家书",
+        "date": "",
+        "place": "",
+        "note": "",
+        "member_ids": [],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p6",
+        "url": "https://picsum.photos/seed/zupu-portrait/900/1200",
+        "title": "示例 · 长辈肖像",
+        "date": "",
+        "place": "",
+        "note": "",
+        "member_ids": [
+            "m3",
+            "m4"
+        ],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p7",
+        "url": "https://picsum.photos/seed/zupu-yard/1200/1200",
+        "title": "示例 · 院子里的合影",
+        "date": "",
+        "place": "",
+        "note": "",
+        "member_ids": [],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p8",
+        "url": "https://picsum.photos/seed/zupu-wedding/800/1200",
+        "title": "示例 · 婚嫁",
+        "date": "",
+        "place": "",
+        "note": "",
+        "member_ids": [],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p9",
+        "url": "https://picsum.photos/seed/zupu-hometown/1400/880",
+        "title": "示例 · 老家村口",
+        "date": "",
+        "place": "",
+        "note": "",
+        "member_ids": [],
+        "created": "2026-11-02 15:46:04"
+    },
+    {
+        "id": "p10",
+        "url": "https://picsum.photos/seed/zupu-dinner/1280/960",
+        "title": "示例 · 年夜饭",
+        "date": "",
+        "place": "",
+        "note": "",
+        "member_ids": [],
+        "created": "2026-11-02 15:46:04"
+    }
+]

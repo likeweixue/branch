@@ -10,6 +10,25 @@ define('USERS_FILE', DATA_DIR . '/users.json');
 define('SETTINGS_FILE', DATA_DIR . '/settings.json');
 define('QUOTES_FILE', DATA_DIR . '/quotes.json');
 define('EVENTS_FILE', DATA_DIR . '/events.json');
+define('PHOTOS_FILE', DATA_DIR . '/photos.json');
+
+/**
+ * 清洗外部图片地址（图床链接）
+ * 只接受 http(s) 绝对地址或站内相对路径，拒绝 javascript:/data: 等可执行协议。
+ */
+function zp_clean_url($u) {
+    $u = trim((string) $u);
+    if ($u === '') return '';
+    if (strlen($u) > 1200) return '';
+    // 去掉换行与控制字符，避免 header/HTML 注入
+    $u = preg_replace('/[\x00-\x20\x7f]+/u', '', $u);
+    if ($u === '') return '';
+    if (preg_match('#^https?://#i', $u)) return $u;
+    if (preg_match('#^//#', $u)) return 'https:' . $u;          // 协议相对
+    if (preg_match('#^/[^/]#', $u)) return $u;                  // 站内绝对路径
+    if (preg_match('#^(\.\.?/)?[\w\-.%/]+\.(jpe?g|png|gif|webp|avif|svg)$#i', $u)) return $u;
+    return '';
+}
 
 /** 家族历史（大事记）可选分类 */
 function zp_event_categories() {
