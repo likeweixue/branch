@@ -1,0 +1,39 @@
+{
+    "zi_bei": [
+        "仁",
+        "德",
+        "朝",
+        "众",
+        "大",
+        "从",
+        "先",
+        "正",
+        "子",
+        "文",
+        "国",
+        "安",
+        "常",
+        "孟",
+        "学",
+        "永",
+        "远",
+        "照",
+        "光",
+        "明"
+    ],
+    "layout": "horizontal",
+    "lines": {
+        "parent": "#cfd3d8",
+        "marriage": "#e5484d",
+        "self": "#ff7500"
+    },
+    "startup": {
+        "enabled": true,
+        "mode": "first",
+        "brand1": "宗谱",
+        "brand2": "CLAN GENEALOGY",
+        "brand3": "FAMILY TREE OS",
+        "org": "家族族谱"
+    },
+    "theme": "light"
+}

@@ -1,0 +1,208 @@
+[
+    {
+        "id": "m1",
+        "name": "麻家爷爷",
+        "zi_bei": "",
+        "gender": "male",
+        "birth": "",
+        "death": null,
+        "bio": "父系祖父，姓名待补充。",
+        "father_id": null,
+        "mother_id": null,
+        "spouse_ids": [
+            "m2"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m2",
+        "name": "麻家奶奶",
+        "zi_bei": "",
+        "gender": "female",
+        "birth": "",
+        "death": null,
+        "bio": "父系祖母，姓名待补充。",
+        "father_id": null,
+        "mother_id": null,
+        "spouse_ids": [
+            "m1"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m3",
+        "name": "刘家外公",
+        "zi_bei": "",
+        "gender": "male",
+        "birth": "",
+        "death": null,
+        "bio": "母系外祖父，姓名待补充。",
+        "father_id": null,
+        "mother_id": null,
+        "spouse_ids": [
+            "m4"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m4",
+        "name": "刘家外婆",
+        "zi_bei": "",
+        "gender": "female",
+        "birth": "",
+        "death": null,
+        "bio": "母系外祖母，姓名待补充。",
+        "father_id": null,
+        "mother_id": null,
+        "spouse_ids": [
+            "m3"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m5",
+        "name": "麻林彪",
+        "zi_bei": "",
+        "gender": "male",
+        "birth": "",
+        "death": null,
+        "bio": "父亲。",
+        "father_id": "m1",
+        "mother_id": "m2",
+        "spouse_ids": [
+            "m6"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m6",
+        "name": "刘小雨",
+        "zi_bei": "",
+        "gender": "female",
+        "birth": "",
+        "death": null,
+        "bio": "母亲，刘家次女。",
+        "father_id": "m3",
+        "mother_id": "m4",
+        "spouse_ids": [
+            "m5"
+        ],
+        "order": 2
+    },
+    {
+        "id": "m7",
+        "name": "大姨妈",
+        "zi_bei": "",
+        "gender": "female",
+        "birth": "",
+        "death": null,
+        "bio": "母亲的大姐。",
+        "father_id": "m3",
+        "mother_id": "m4",
+        "spouse_ids": [
+            "m8"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m8",
+        "name": "大姨父",
+        "zi_bei": "",
+        "gender": "male",
+        "birth": "",
+        "death": null,
+        "bio": "大姨妈的丈夫。",
+        "father_id": null,
+        "mother_id": null,
+        "spouse_ids": [
+            "m7"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m9",
+        "name": "三姨妈",
+        "zi_bei": "",
+        "gender": "female",
+        "birth": "",
+        "death": null,
+        "bio": "母亲的三姐。",
+        "father_id": "m3",
+        "mother_id": "m4",
+        "spouse_ids": [
+            "m10"
+        ],
+        "order": 3
+    },
+    {
+        "id": "m10",
+        "name": "三姨父",
+        "zi_bei": "",
+        "gender": "male",
+        "birth": "",
+        "death": null,
+        "bio": "三姨妈的丈夫。",
+        "father_id": null,
+        "mother_id": null,
+        "spouse_ids": [
+            "m9"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m11",
+        "name": "五姨妈",
+        "zi_bei": "",
+        "gender": "female",
+        "birth": "",
+        "death": null,
+        "bio": "母亲的五妹。",
+        "father_id": "m3",
+        "mother_id": "m4",
+        "spouse_ids": [
+            "m12"
+        ],
+        "order": 4
+    },
+    {
+        "id": "m12",
+        "name": "五姨父",
+        "zi_bei": "",
+        "gender": "male",
+        "birth": "",
+        "death": null,
+        "bio": "五姨妈的丈夫。",
+        "father_id": null,
+        "mother_id": null,
+        "spouse_ids": [
+            "m11"
+        ],
+        "order": 1
+    },
+    {
+        "id": "m13",
+        "name": "刘雪",
+        "zi_bei": "",
+        "gender": "female",
+        "birth": "",
+        "death": null,
+        "bio": "姐姐。",
+        "father_id": "m5",
+        "mother_id": "m6",
+        "spouse_ids": [],
+        "order": 1
+    },
+    {
+        "id": "m14",
+        "name": "刘永生",
+        "zi_bei": "永",
+        "gender": "male",
+        "birth": "",
+        "death": null,
+        "bio": "本人，本系统的“我”。",
+        "father_id": "m5",
+        "mother_id": "m6",
+        "spouse_ids": [],
+        "order": 2
+    }
+]
