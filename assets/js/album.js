@@ -39,89 +39,99 @@
   var pctEl = document.getElementById('alPct');
   var blank = document.getElementById('alBlank');
 
+  var HEAD = 18;         // 画布顶部留白
+
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-  function topPad() {
-    if (!hud || hud.hidden) return 24;
+
+  /** HUD 面板在 stage 坐标系里的右下角（HUD 隐藏时返回 null） */
+  function hudBox() {
+    if (!hud || hud.hidden) return null;
     var r = hud.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    return Math.max(24, Math.round(r.bottom - s.top + 16));
+    if (!r.width) return null;
+    return { right: r.right - s.left, bottom: r.bottom - s.top };
   }
+
   function availW() { return Math.max(240, stage.clientWidth - SIDEPAD * 2); }
-  function availH() { return Math.max(220, stage.clientHeight - topPad() - 70); }
 
   function colsFor(w) {
     return clamp(Math.floor((availW() + GAP) / (w + GAP)), 1, 12);
   }
 
-  /* ---------- 铺贴：最短列优先，形成错位瀑布流 ---------- */
-  function simulate(w) {
-    var cols = colsFor(w), colH = [], i;
-    for (i = 0; i < cols; i++) colH.push(topPad());
+  /** 某一列的第一张照片从多高开始：压到 HUD 的列让开面板，其余列从顶部开始 */
+  function colTop(x, w) {
+    var hb = hudBox();
+    if (!hb) return HEAD;
+    return (x < hb.right + 12) ? Math.max(HEAD, Math.round(hb.bottom + 16)) : HEAD;
+  }
+
+  /* ---------- 铺贴计算：最短列优先，形成错位瀑布流 ---------- */
+  function compute(w) {
+    var cols = colsFor(w);
+    var usedW = cols * w + (cols - 1) * GAP;
+    var x0 = SIDEPAD + Math.max(0, (availW() - usedW) / 2);
+    var colH = [], colX = [], i;
+    for (i = 0; i < cols; i++) {
+      var x = Math.round(x0 + i * (w + GAP));
+      colX.push(x);
+      colH.push(colTop(x, w));
+    }
+    var pos = [], maxH = 0;
     list.forEach(function (p) {
       var h = Math.round(w / (ratio[p.id] || DEF_RATIO));
       var c = 0;
       for (var k = 1; k < cols; k++) if (colH[k] < colH[c] - 0.5) c = k;
+      pos.push({ id: p.id, x: colX[c], y: colH[c], w: w, h: h });
       colH[c] = colH[c] + h + GAP;
     });
-    var maxH = 0;
-    for (i = 0; i < cols; i++) maxH = Math.max(maxH, colH[i]);
-    return { w: cols * w + (cols - 1) * GAP, h: Math.max(0, maxH - GAP) };
+    for (i = 0; i < cols; i++) maxH = Math.max(maxH, colH[i] - GAP);
+    return { cols: cols, usedW: usedW, maxH: maxH, pos: pos };
   }
 
   function layout() {
     if (!list.length) return;
-    var cols = colsFor(tileW);
-    var usedW = cols * tileW + (cols - 1) * GAP;
-    var x0 = SIDEPAD + Math.max(0, (availW() - usedW) / 2);
-    var colH = [], colX = [], i;
-    for (i = 0; i < cols; i++) {
-      colH.push(topPad());
-      colX.push(x0 + i * (tileW + GAP));
-    }
-    list.forEach(function (p) {
-      var h = Math.round(tileW / (ratio[p.id] || DEF_RATIO));
-      var c = 0;
-      for (var k = 1; k < cols; k++) if (colH[k] < colH[c] - 0.5) c = k;
-      var x = Math.round(colX[c]), y = Math.round(colH[c]);
-      var el = els[p.id];
-      if (el) {
-        el.style.width = tileW + 'px';
-        el.style.height = h + 'px';
-        el.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
-      }
-      geo[p.id] = { x: x, y: y, w: tileW, h: h };
-      colH[c] = y + h + GAP;
+    var r = compute(tileW);
+    r.pos.forEach(function (g) {
+      var el = els[g.id];
+      if (!el) return;
+      el.style.width = g.w + 'px';
+      el.style.height = g.h + 'px';
+      el.style.transform = 'translate3d(' + g.x + 'px,' + g.y + 'px,0)';
+      geo[g.id] = { x: g.x, y: g.y, w: g.w, h: g.h };
     });
-    var maxH = 0;
-    for (i = 0; i < cols; i++) maxH = Math.max(maxH, colH[i]);
-    wall.style.width = usedW + 'px';
-    wall.style.height = Math.max(0, maxH - GAP) + 'px';
+    wall.style.width = r.usedW + 'px';
+    wall.style.height = Math.max(0, r.maxH) + 'px';
     updatePct();
   }
 
-  /* ---------- 默认视图：按「一屏约 4~5 列」铺，铺不下就往下铺（可拖拽看） ---------- */
+  function simulate(w) {
+    var r = compute(w);
+    return { w: r.usedW, h: r.maxH };
+  }
+
+  /* ---------- 默认视图：一屏铺满整面墙 ---------- */
   function defaultView() {
     if (!list.length) return;
-    tileW = Math.round(clamp(availW() / 4.4, Math.min(MINW, availW()), Math.min(FITMAX, availW())));
+    var maxW = Math.min(FITMAX, Math.floor(availW() / 2));   // 至少 2 列
+    var floorW = Math.min(MINW, maxW);
+    var limH = stage.clientHeight - 6;   // 允许贴着底边（差几像素不算溢出）
+    var best = floorW;
+    for (var w = maxW; w >= floorW; w -= 2) {
+      if (simulate(w).h <= limH) { best = w; break; }
+    }
+    tileW = Math.round(best);
     REF = tileW;
     layout();
-    pan = { x: 0, y: 0 };
+    // 整面墙没占满屏高时，上下均分留白（否则会顶着顶部、底部空一大块）
+    var wallH = parseFloat(wall.style.height) || 0;
+    pan.x = 0;
+    pan.y = wallH && wallH < stage.clientHeight ? Math.round((stage.clientHeight - wallH) / 2) : 0;
     applyPan();
   }
 
-  /* ---------- 适屏：二分找「全部装进一屏」的最大基准宽度 ---------- */
+  /* ⤢ 按钮：与默认视图同一套算法 */
   function fit() {
-    if (!list.length) return;
-    var maxW = Math.min(FITMAX, availW());
-    var lo = Math.min(MINW, maxW), hi = maxW, best = lo;
-    for (var it = 0; it < 12; it++) {
-      var mid = (lo + hi) / 2;
-      var s = simulate(mid);
-      if (s.h <= availH() && s.w <= availW()) { best = mid; lo = mid; } else { hi = mid; }
-    }
-    tileW = Math.round(clamp(best, Math.min(MINW, maxW), maxW));
-    layout();
-    pan = { x: 0, y: 0 };
-    applyPan();
+    userTouched = false;
+    defaultView();
   }
 
   function applyPan() {
@@ -148,8 +158,9 @@
       var img = document.createElement('img');
       img.className = 'al-img';
       img.alt = p.title || '家族照片';
-      img.loading = 'lazy';
-      img.decoding = 'async';
+      // 照片墙整体带 transform 缩放，lazy/async 解码在部分内核上会出现「已加载但没画出来」，
+      // 这里改为立即加载（相册总量有限，且默认一屏可看全，无需懒加载）
+      img.loading = 'eager';
       img.referrerPolicy = 'no-referrer';
       img.addEventListener('load', function () {
         if (!img.naturalWidth || !img.naturalHeight) return;

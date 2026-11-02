@@ -1,111 +1,102 @@
 [
     {
         "id": "p1",
-        "url": "https://picsum.photos/seed/zupu-family-1949/1200/900",
-        "title": "示例 · 祖辈合影",
+        "url": "photos/01-zupu-archive.jpg",
+        "title": "手抄族谱",
         "date": "",
         "place": "",
-        "note": "把老照片扫描后传到图床，链接填在这里。",
-        "member_ids": [
-            "m1",
-            "m2"
-        ],
-        "created": "2026-11-02 15:46:04"
+        "note": "“刘氏祖宗族谱”手抄本。中录二十字字辈：仁德朝众大 · 从先正子文 · 国安常孟学 · 永远照光明；页脚另记“九代祖坟墓　弄袍坳坟　刘子隆”。",
+        "member_ids": [],
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p2",
-        "url": "https://picsum.photos/seed/zupu-family-1985/900/1250",
-        "title": "示例 · 父辈成家",
+        "url": "photos/02-baby-swaddle.jpg",
+        "title": "襁褓",
         "date": "",
         "place": "",
-        "note": "示例条目，可在后台替换为真实照片。",
-        "member_ids": [
-            "m5",
-            "m6"
-        ],
-        "created": "2026-11-02 15:46:04"
+        "note": "碎花包被裹得严严实实，只露出一张小脸，枕边垫着黄色小枕。",
+        "member_ids": [],
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p3",
-        "url": "https://picsum.photos/seed/zupu-newyear/1300/850",
-        "title": "示例 · 年节团聚",
+        "url": "photos/03-baby-chair.jpg",
+        "title": "摇椅上的午后",
         "date": "",
         "place": "",
-        "note": "",
+        "note": "网布摇椅里躺着，一只手攥住盖毯的边角。",
         "member_ids": [],
-        "created": "2026-11-02 15:46:04"
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p4",
-        "url": "https://picsum.photos/seed/zupu-oldhouse/980/1400",
-        "title": "示例 · 老屋",
+        "url": "photos/04-baby-cry.jpg",
+        "title": "放声大哭",
         "date": "",
         "place": "",
-        "note": "",
+        "note": "哭得满脸通红。留着，长大给他自己看。",
         "member_ids": [],
-        "created": "2026-11-02 15:46:04"
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p5",
-        "url": "https://picsum.photos/seed/zupu-letters/1350/900",
-        "title": "示例 · 旧家书",
+        "url": "photos/05-elder-yard.jpg",
+        "title": "堂屋门口",
         "date": "",
         "place": "",
-        "note": "",
+        "note": "老屋堂屋门口，竹篮、搪瓷盆、红塑料桶，都是过日子的家什。",
         "member_ids": [],
-        "created": "2026-11-02 15:46:04"
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p6",
-        "url": "https://picsum.photos/seed/zupu-portrait/900/1200",
-        "title": "示例 · 长辈肖像",
+        "url": "photos/06-ancestral-shrine.jpg",
+        "title": "祖公神位",
         "date": "",
         "place": "",
-        "note": "",
-        "member_ids": [
-            "m3",
-            "m4"
-        ],
-        "created": "2026-11-02 15:46:04"
+        "note": "老墙上贴着红纸神位“刘氏祖宗之位”，两侧对联，上方横批“祖德流芳”。",
+        "member_ids": [],
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p7",
-        "url": "https://picsum.photos/seed/zupu-yard/1200/1200",
-        "title": "示例 · 院子里的合影",
+        "url": "photos/07-father-baby.jpg",
+        "title": "抱着娃娃",
         "date": "",
         "place": "",
-        "note": "",
+        "note": "木躺椅上，怀里抱着刚满月的娃娃，身后是灶房门口的暖瓶与锅灶。",
         "member_ids": [],
-        "created": "2026-11-02 15:46:04"
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p8",
-        "url": "https://picsum.photos/seed/zupu-wedding/800/1200",
-        "title": "示例 · 婚嫁",
+        "url": "photos/08-elder-bridge.jpg",
+        "title": "大桥上",
         "date": "",
         "place": "",
-        "note": "",
+        "note": "斜拉桥人行道，红漆地面一直铺到远处，两边是连绵的山。",
         "member_ids": [],
-        "created": "2026-11-02 15:46:04"
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p9",
-        "url": "https://picsum.photos/seed/zupu-hometown/1400/880",
-        "title": "示例 · 老家村口",
-        "date": "",
+        "url": "photos/09-lady-dog.jpg",
+        "title": "怀里的黑狗",
+        "date": "2023-01-21",
         "place": "",
-        "note": "",
+        "note": "夜里在院子里，怀里揣着一只小黑狗。手机水印：2023.01.21 22:45。",
         "member_ids": [],
-        "created": "2026-11-02 15:46:04"
+        "created": "2026-11-02 16:39:02"
     },
     {
         "id": "p10",
-        "url": "https://picsum.photos/seed/zupu-dinner/1280/960",
-        "title": "示例 · 年夜饭",
-        "date": "",
+        "url": "photos/10-lady-field.jpg",
+        "title": "山里",
+        "date": "2022-10-20",
         "place": "",
-        "note": "",
+        "note": "坡地上歇脚，身后是层层叠叠的喀斯特群山。手机水印：2022.10.20 14:40。",
         "member_ids": [],
-        "created": "2026-11-02 15:46:04"
+        "created": "2026-11-02 16:39:02"
     }
 ]

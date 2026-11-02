@@ -60,19 +60,33 @@ function zp_seed_events() {
  */
 function zp_seed_photos() {
     $now = date('Y-m-d H:i:s');
-    $u = function ($seed, $w, $h) { return 'https://picsum.photos/seed/zupu-' . $seed . '/' . $w . '/' . $h; };
-    return [
-        ['id'=>'p1','url'=>$u('family-1949', 1200, 900),'title'=>'示例 · 祖辈合影','date'=>'','place'=>'','note'=>'把老照片扫描后传到图床，链接填在这里。','member_ids'=>['m1','m2'],'created'=>$now],
-        ['id'=>'p2','url'=>$u('family-1985', 900, 1250),'title'=>'示例 · 父辈成家','date'=>'','place'=>'','note'=>'示例条目，可在后台替换为真实照片。','member_ids'=>['m5','m6'],'created'=>$now],
-        ['id'=>'p3','url'=>$u('newyear', 1300, 850),'title'=>'示例 · 年节团聚','date'=>'','place'=>'','note'=>'','member_ids'=>[],'created'=>$now],
-        ['id'=>'p4','url'=>$u('oldhouse', 980, 1400),'title'=>'示例 · 老屋','date'=>'','place'=>'','note'=>'','member_ids'=>[],'created'=>$now],
-        ['id'=>'p5','url'=>$u('letters', 1350, 900),'title'=>'示例 · 旧家书','date'=>'','place'=>'','note'=>'','member_ids'=>[],'created'=>$now],
-        ['id'=>'p6','url'=>$u('portrait', 900, 1200),'title'=>'示例 · 长辈肖像','date'=>'','place'=>'','note'=>'','member_ids'=>['m3','m4'],'created'=>$now],
-        ['id'=>'p7','url'=>$u('yard', 1200, 1200),'title'=>'示例 · 院子里的合影','date'=>'','place'=>'','note'=>'','member_ids'=>[],'created'=>$now],
-        ['id'=>'p8','url'=>$u('wedding', 800, 1200),'title'=>'示例 · 婚嫁','date'=>'','place'=>'','note'=>'','member_ids'=>[],'created'=>$now],
-        ['id'=>'p9','url'=>$u('hometown', 1400, 880),'title'=>'示例 · 老家村口','date'=>'','place'=>'','note'=>'','member_ids'=>[],'created'=>$now],
-        ['id'=>'p10','url'=>$u('dinner', 1280, 960),'title'=>'示例 · 年夜饭','date'=>'','place'=>'','note'=>'','member_ids'=>[],'created'=>$now],
+    // 照片文件随仓库提供（photos/ 目录），这里只记录链接与说明
+    $p = [
+        ['01-zupu-archive.jpg',   '手抄族谱',       '',           '“刘氏祖宗族谱”手抄本。中录二十字字辈：仁德朝众大 · 从先正子文 · 国安常孟学 · 永远照光明；页脚另记“九代祖坟墓　弄袍坳坟　刘子隆”。'],
+        ['02-baby-swaddle.jpg',   '襁褓',           '',           '碎花包被裹得严严实实，只露出一张小脸，枕边垫着黄色小枕。'],
+        ['03-baby-chair.jpg',     '摇椅上的午后',   '',           '网布摇椅里躺着，一只手攥住盖毯的边角。'],
+        ['04-baby-cry.jpg',       '放声大哭',       '',           '哭得满脸通红。留着，长大给他自己看。'],
+        ['05-elder-yard.jpg',     '堂屋门口',       '',           '老屋堂屋门口，竹篮、搪瓷盆、红塑料桶，都是过日子的家什。'],
+        ['06-ancestral-shrine.jpg','祖公神位',      '',           '老墙上贴着红纸神位“刘氏祖宗之位”，两侧对联，上方横批“祖德流芳”。'],
+        ['07-father-baby.jpg',    '抱着娃娃',       '',           '木躺椅上，怀里抱着刚满月的娃娃，身后是灶房门口的暖瓶与锅灶。'],
+        ['08-elder-bridge.jpg',   '大桥上',         '',           '斜拉桥人行道，红漆地面一直铺到远处，两边是连绵的山。'],
+        ['09-lady-dog.jpg',       '怀里的黑狗',     '2023-01-21', '夜里在院子里，怀里揣着一只小黑狗。手机水印：2023.01.21 22:45。'],
+        ['10-lady-field.jpg',     '山里',           '2022-10-20', '坡地上歇脚，身后是层层叠叠的喀斯特群山。手机水印：2022.10.20 14:40。'],
     ];
+    $out = [];
+    foreach ($p as $i => $row) {
+        $out[] = [
+            'id'         => 'p' . ($i + 1),
+            'url'        => 'photos/' . $row[0],
+            'title'      => $row[1],
+            'date'       => $row[2],
+            'place'      => '',
+            'note'       => $row[3],
+            'member_ids' => [],
+            'created'    => $now,
+        ];
+    }
+    return $out;
 }
 
 function zp_ensure_seed() {

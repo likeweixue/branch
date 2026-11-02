@@ -1,7 +1,7 @@
 <?php
 /**
  * 前台：家族相册（错位照片墙 / 滚轮缩放 / 点击放大）
- * 图片本身放在图床，这里只保存直链，不占本站空间。
+ * 照片可以是站内 photos/ 目录里的文件，也可以是图床直链；这里只存链接，不存图片本身。
  */
 require_once __DIR__ . '/core/config.php';
 require_once __DIR__ . '/core/storage.php';
@@ -28,7 +28,8 @@ function zp_photo_year($p) {
 // 排序：有年份的按年代正序，无年份的排最后
 usort($photos, function ($a, $b) {
     $ya = zp_photo_year($a); $yb = zp_photo_year($b);
-    if ($ya === '' && $yb === '') return strcmp((string) ($a['title'] ?? ''), (string) ($b['title'] ?? ''));
+    // 都没有年份：保持 photos.json 里的录入顺序（PHP 8 排序稳定，返回 0 即原序）
+    if ($ya === '' && $yb === '') return 0;
     if ($ya === '') return 1;
     if ($yb === '') return -1;
     if ($ya !== $yb) return $ya <=> $yb;
