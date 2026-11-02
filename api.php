@@ -47,6 +47,14 @@ function zp_member_by_id($members, $id) {
     return null;
 }
 
+/** 在数组里按 id 找一行（语录 / 大事记通用） */
+function zp_find_row($rows, $id) {
+    foreach ($rows as $r) {
+        if (($r['id'] ?? '') === $id) return $r;
+    }
+    return null;
+}
+
 /** 判断 $anc 是否是 $node 的祖先（沿 father/mother 上溯，BFS 防环） */
 function zp_is_ancestor($members, $anc, $node) {
     $queue = [$node];
@@ -256,6 +264,31 @@ switch ($action) {
         unset($u);
         zp_save_json(MEMBERS_FILE, $members);
         zp_save_json(USERS_FILE, $users);
+
+        // 语录：讲述人被删除后转为手填姓名，不丢内容
+        $quotes = zp_load_json(QUOTES_FILE, []);
+        $qTouched = false;
+        foreach ($quotes as &$q) {
+            if (($q['member_id'] ?? null) === $id) {
+                $q['member_id'] = null;
+                $qTouched = true;
+            }
+        }
+        unset($q);
+        if ($qTouched) zp_save_json(QUOTES_FILE, $quotes);
+
+        // 大事记：移除对已删成员的引用
+        $events = zp_load_json(EVENTS_FILE, []);
+        $eTouched = false;
+        foreach ($events as &$ev) {
+            if (!empty($ev['member_ids']) && is_array($ev['member_ids']) && in_array($id, $ev['member_ids'], true)) {
+                $ev['member_ids'] = array_values(array_diff($ev['member_ids'], [$id]));
+                $eTouched = true;
+            }
+        }
+        unset($ev);
+        if ($eTouched) zp_save_json(EVENTS_FILE, $events);
+
         zp_json(['ok' => true]);
         break;
 
@@ -360,6 +393,129 @@ switch ($action) {
         }
         $users = array_values(array_filter($users, fn($u) => $u['id'] !== $id));
         zp_save_json(USERS_FILE, $users);
+        zp_json(['ok' => true]);
+        break;
+
+    /* ============ 语录：列表 / 保存 / 删除（管理员） ============ */
+    case 'list_quotes':
+        require_admin();
+        zp_json(['ok' => true, 'quotes' => zp_load_json(QUOTES_FILE, [])]);
+        break;
+
+    case 'save_quote':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $text = trim($in['text'] ?? '');
+        if ($text === '') zp_json(['ok' => false, 'msg' => '语录内容不能为空'], 400);
+
+        $quotes  = zp_load_json(QUOTES_FILE, []);
+        $members = zp_load_json(MEMBERS_FILE, []);
+        $id = trim($in['id'] ?? '');
+        $isNew = ($id === '' || zp_find_row($quotes, $id) === null);
+
+        $member_id = !empty($in['member_id']) ? $in['member_id'] : null;
+        if ($member_id && !zp_member_by_id($members, $member_id)) $member_id = null;
+
+        $row = [
+            'member_id' => $member_id,
+            'speaker'   => trim($in['speaker'] ?? ''),
+            'relation'  => trim($in['relation'] ?? ''),
+            'text'      => $text,
+            'context'   => trim($in['context'] ?? ''),
+            'year'      => trim($in['year'] ?? ''),
+        ];
+
+        if ($isNew) {
+            $row = ['id' => zp_next_id($quotes, 'q')] + $row;
+            $row['created'] = date('Y-m-d H:i:s');
+            $quotes[] = $row;
+        } else {
+            $row = ['id' => $id] + $row;
+            foreach ($quotes as &$q) {
+                if ($q['id'] === $id) {
+                    $row['created'] = $q['created'] ?? date('Y-m-d H:i:s');
+                    $q = $row;
+                    break;
+                }
+            }
+            unset($q);
+        }
+        zp_save_json(QUOTES_FILE, $quotes);
+        zp_json(['ok' => true, 'id' => $row['id']]);
+        break;
+
+    case 'delete_quote':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $id = trim($in['id'] ?? '');
+        if ($id === '') zp_json(['ok' => false, 'msg' => '缺少 id'], 400);
+        $quotes = array_values(array_filter(zp_load_json(QUOTES_FILE, []), fn($q) => ($q['id'] ?? '') !== $id));
+        zp_save_json(QUOTES_FILE, $quotes);
+        zp_json(['ok' => true]);
+        break;
+
+    /* ============ 家族历史：列表 / 保存 / 删除（管理员） ============ */
+    case 'list_events':
+        require_admin();
+        zp_json(['ok' => true, 'events' => zp_load_json(EVENTS_FILE, [])]);
+        break;
+
+    case 'save_event':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $title = trim($in['title'] ?? '');
+        if ($title === '') zp_json(['ok' => false, 'msg' => '事件标题不能为空'], 400);
+
+        $events  = zp_load_json(EVENTS_FILE, []);
+        $members = zp_load_json(MEMBERS_FILE, []);
+        $id = trim($in['id'] ?? '');
+        $isNew = ($id === '' || zp_find_row($events, $id) === null);
+
+        $ids = [];
+        if (isset($in['member_ids']) && is_array($in['member_ids'])) {
+            foreach ($in['member_ids'] as $mid) {
+                if ($mid !== '' && zp_member_by_id($members, $mid) && !in_array($mid, $ids, true)) $ids[] = $mid;
+            }
+        }
+
+        $row = [
+            'date'       => trim($in['date'] ?? ''),
+            'title'      => $title,
+            'text'       => trim($in['text'] ?? ''),
+            'category'   => trim($in['category'] ?? ''),
+            'member_ids' => $ids,
+        ];
+
+        if ($isNew) {
+            $row = ['id' => zp_next_id($events, 'e')] + $row;
+            $row['created'] = date('Y-m-d H:i:s');
+            $events[] = $row;
+        } else {
+            $row = ['id' => $id] + $row;
+            foreach ($events as &$ev) {
+                if ($ev['id'] === $id) {
+                    $row['created'] = $ev['created'] ?? date('Y-m-d H:i:s');
+                    $ev = $row;
+                    break;
+                }
+            }
+            unset($ev);
+        }
+        zp_save_json(EVENTS_FILE, $events);
+        zp_json(['ok' => true, 'id' => $row['id']]);
+        break;
+
+    case 'delete_event':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $id = trim($in['id'] ?? '');
+        if ($id === '') zp_json(['ok' => false, 'msg' => '缺少 id'], 400);
+        $events = array_values(array_filter(zp_load_json(EVENTS_FILE, []), fn($e) => ($e['id'] ?? '') !== $id));
+        zp_save_json(EVENTS_FILE, $events);
         zp_json(['ok' => true]);
         break;
 

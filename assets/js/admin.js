@@ -17,13 +17,21 @@
   function byId(id) { return STATE.members.find(function (m) { return m.id === id; }); }
   function nameOf(id) { var m = byId(id); return m ? m.name : '—'; }
 
-  /* ---------- 标签切换 ---------- */
+  /* ---------- 标签切换（支持 #quotes / #history 直达） ---------- */
+  function activateTab(name) {
+    var btn = document.querySelector('.ad-nav button[data-tab="' + name + '"]');
+    var panel = document.getElementById('tab-' + name);
+    if (!btn || !panel) return false;
+    document.querySelectorAll('.ad-nav button').forEach(function (x) { x.classList.remove('on'); });
+    document.querySelectorAll('.ad-panel').forEach(function (x) { x.classList.remove('on'); });
+    btn.classList.add('on');
+    panel.classList.add('on');
+    return true;
+  }
   document.querySelectorAll('.ad-nav button').forEach(function (b) {
     b.addEventListener('click', function () {
-      document.querySelectorAll('.ad-nav button').forEach(function (x) { x.classList.remove('on'); });
-      document.querySelectorAll('.ad-panel').forEach(function (x) { x.classList.remove('on'); });
-      b.classList.add('on');
-      document.getElementById('tab-' + b.dataset.tab).classList.add('on');
+      activateTab(b.dataset.tab);
+      if (history.replaceState) history.replaceState(null, '', '#' + b.dataset.tab);
     });
   });
 
@@ -222,6 +230,152 @@
     api('save_user', data, function (r) { if (r.ok) { toast('已保存'); document.getElementById('adUserForm').style.display = 'none'; loadAll(); } else toast(r.msg || '保存失败'); });
   });
 
+  /* ---------- 语录管理 ---------- */
+  var quotes = (STATE.quotes || []).slice();
+
+  function qSpeaker(q) {
+    if (q.member_id) { var m = byId(q.member_id); if (m) return m.name; }
+    return (q.speaker || '').trim() || '佚名';
+  }
+  function cut(s, n) {
+    s = String(s == null ? '' : s);
+    return s.length > n ? s.slice(0, n) + '…' : s;
+  }
+  function renderQuotes() {
+    var tb = document.getElementById('qList');
+    if (!tb) return;
+    tb.innerHTML = '';
+    quotes.forEach(function (q) {
+      var meta = [q.context, q.year].filter(function (s) { return s && String(s).trim(); }).join(' · ') || '—';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + esc(qSpeaker(q)) + (q.relation ? '<span class="ad-muted"> · ' + esc(q.relation) + '</span>' : '') + '</td>' +
+        '<td>' + esc(cut(q.text, 40)) + '</td>' +
+        '<td>' + esc(meta) + '</td>' +
+        '<td><span class="ad-act" data-qedit="' + q.id + '">编辑</span><span class="ad-act del" data-qdel="' + q.id + '">删除</span></td>';
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll('[data-qedit]').forEach(function (e) {
+      e.addEventListener('click', function () { openQuoteForm(e.dataset.qedit); });
+    });
+    tb.querySelectorAll('[data-qdel]').forEach(function (e) {
+      e.addEventListener('click', function () {
+        if (!confirm('确定删除这条语录？')) return;
+        api('delete_quote', { id: e.dataset.qdel }, function (r) {
+          if (r.ok) { toast('已删除'); loadAll(); } else toast(r.msg || '删除失败');
+        });
+      });
+    });
+  }
+  function openQuoteForm(id) {
+    var f = document.getElementById('adQuoteForm');
+    if (!f) return;
+    f.style.display = 'grid';
+    fillMemberSelect(document.getElementById('q_member'), null, true);
+    var q = id ? quotes.filter(function (x) { return x.id === id; })[0] : null;
+    document.getElementById('q_id').value = q ? q.id : '';
+    document.getElementById('q_member').value = q && q.member_id ? q.member_id : '';
+    document.getElementById('q_relation').value = q ? (q.relation || '') : '';
+    document.getElementById('q_speaker').value = q ? (q.speaker || '') : '';
+    document.getElementById('q_year').value = q ? (q.year || '') : '';
+    document.getElementById('q_text').value = q ? (q.text || '') : '';
+    document.getElementById('q_context').value = q ? (q.context || '') : '';
+    document.getElementById('q_text').focus();
+    f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  document.getElementById('adAddQuote').addEventListener('click', function () { openQuoteForm(null); });
+  document.getElementById('qCancel').addEventListener('click', function () { document.getElementById('adQuoteForm').style.display = 'none'; });
+  document.getElementById('qSave').addEventListener('click', function () {
+    var data = {
+      id: document.getElementById('q_id').value,
+      member_id: document.getElementById('q_member').value || '',
+      relation: document.getElementById('q_relation').value.trim(),
+      speaker: document.getElementById('q_speaker').value.trim(),
+      year: document.getElementById('q_year').value.trim(),
+      text: document.getElementById('q_text').value.trim(),
+      context: document.getElementById('q_context').value.trim(),
+    };
+    if (!data.text) { toast('请填写语录内容'); return; }
+    api('save_quote', data, function (r) {
+      if (r.ok) { toast('已保存'); document.getElementById('adQuoteForm').style.display = 'none'; loadAll(); }
+      else toast(r.msg || '保存失败');
+    });
+  });
+
+  /* ---------- 历史管理 ---------- */
+  var events = (STATE.events || []).slice();
+
+  function fillEventMembers(selected) {
+    var box = document.getElementById('ev_members');
+    if (!box) return;
+    box.innerHTML = '';
+    STATE.members.forEach(function (m) {
+      var lab = document.createElement('label');
+      lab.innerHTML = '<input type="checkbox" value="' + m.id + '"' + (selected.indexOf(m.id) !== -1 ? ' checked' : '') + '>' + esc(m.name);
+      box.appendChild(lab);
+    });
+  }
+  function renderEvents() {
+    var tb = document.getElementById('evList');
+    if (!tb) return;
+    tb.innerHTML = '';
+    events.forEach(function (ev) {
+      var mem = (ev.member_ids || []).map(function (id) { return byId(id) ? byId(id).name : null; }).filter(Boolean).join('、') || '—';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + (String(ev.date || '').trim() ? esc(ev.date) : '待考') + '</td>' +
+        '<td>' + esc(ev.title) + '</td>' +
+        '<td>' + (String(ev.category || '').trim() ? esc(ev.category) : '—') + '</td>' +
+        '<td>' + esc(mem) + '</td>' +
+        '<td><span class="ad-act" data-evedit="' + ev.id + '">编辑</span><span class="ad-act del" data-evdel="' + ev.id + '">删除</span></td>';
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll('[data-evedit]').forEach(function (e) {
+      e.addEventListener('click', function () { openEventForm(e.dataset.evedit); });
+    });
+    tb.querySelectorAll('[data-evdel]').forEach(function (e) {
+      e.addEventListener('click', function () {
+        if (!confirm('确定删除这条历史记录？')) return;
+        api('delete_event', { id: e.dataset.evdel }, function (r) {
+          if (r.ok) { toast('已删除'); loadAll(); } else toast(r.msg || '删除失败');
+        });
+      });
+    });
+  }
+  function openEventForm(id) {
+    var f = document.getElementById('adEventForm');
+    if (!f) return;
+    var ev = id ? events.filter(function (x) { return x.id === id; })[0] : null;
+    f.style.display = 'grid';
+    document.getElementById('ev_id').value = ev ? ev.id : '';
+    document.getElementById('ev_date').value = ev ? (ev.date || '') : '';
+    document.getElementById('ev_cat').value = ev ? (ev.category || '') : '';
+    document.getElementById('ev_title').value = ev ? (ev.title || '') : '';
+    document.getElementById('ev_text').value = ev ? (ev.text || '') : '';
+    fillEventMembers(ev ? (ev.member_ids || []) : []);
+    document.getElementById('ev_title').focus();
+    f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  document.getElementById('adAddEvent').addEventListener('click', function () { openEventForm(null); });
+  document.getElementById('evCancel').addEventListener('click', function () { document.getElementById('adEventForm').style.display = 'none'; });
+  document.getElementById('evSave').addEventListener('click', function () {
+    var ids = [];
+    document.querySelectorAll('#ev_members input:checked').forEach(function (c) { ids.push(c.value); });
+    var data = {
+      id: document.getElementById('ev_id').value,
+      date: document.getElementById('ev_date').value.trim(),
+      category: document.getElementById('ev_cat').value.trim(),
+      title: document.getElementById('ev_title').value.trim(),
+      text: document.getElementById('ev_text').value.trim(),
+      member_ids: ids,
+    };
+    if (!data.title) { toast('请填写事件标题'); return; }
+    api('save_event', data, function (r) {
+      if (r.ok) { toast('已保存'); document.getElementById('adEventForm').style.display = 'none'; loadAll(); }
+      else toast(r.msg || '保存失败');
+    });
+  });
+
   /* ---------- 全局 ---------- */
   document.getElementById('zpLogout').addEventListener('click', function () { api('logout', {}, function () { location.href = 'index.php'; }); });
 
@@ -230,10 +384,16 @@
       if (r.ok) { STATE.members = r.members; STATE.settings = r.settings; fillZibeiDatalist(); renderMembers(); }
     });
     api('list_users', {}, function (r) { if (r.ok) { users = r.users; renderUsers(); } });
+    api('list_quotes', {}, function (r) { if (r.ok) { quotes = r.quotes; renderQuotes(); } });
+    api('list_events', {}, function (r) { if (r.ok) { events = r.events; renderEvents(); } });
   }
 
   // 初始渲染
   fillZibeiDatalist();
   renderMembers();
-  loadAll(); // 拉取最新成员与用户
+  renderQuotes();
+  renderEvents();
+  var hashTab = (location.hash || '').replace(/^#/, '');
+  if (hashTab) activateTab(hashTab);
+  loadAll(); // 拉取最新成员、用户、语录、历史
 })();

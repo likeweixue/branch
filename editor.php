@@ -32,9 +32,13 @@ $ed = ['members' => $members, 'settings' => $settings, 'me' => $me];
 <body class="ed-body">
 
 <header class="zp-top">
-  <div class="zp-brand"><b>宗谱</b><span>CANVAS EDITOR</span></div>
+  <a class="zp-brand" href="index.php" style="text-decoration:none;color:inherit"><b>宗谱</b><span>CANVAS EDITOR</span></a>
+  <nav class="zp-nav">
+    <a href="index.php">族谱</a>
+    <a href="quotes.php">语录</a>
+    <a href="history.php">历史</a>
+  </nav>
   <div class="spacer"></div>
-  <span class="zp-tag">画布编辑器</span>
   <a class="zp-btn" href="admin.php">← 返回后台</a>
   <button class="zp-btn ghost" id="edLogout">退出</button>
 </header>

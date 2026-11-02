@@ -6,6 +6,7 @@ require_once __DIR__ . '/core/config.php';
 require_once __DIR__ . '/core/storage.php';
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/seed.php';
+require_once __DIR__ . '/core/layout.php';
 
 zp_ensure_seed();
 
@@ -122,20 +123,7 @@ $zp_data = [
 </div>
 
 <!-- ============ 顶栏 ============ -->
-<header class="zp-top">
-  <div class="zp-brand"><b>宗谱</b><span>CLAN GENEALOGY</span></div>
-  <div class="spacer"></div>
-  <?php if ($cur): ?>
-    <div class="zp-user"><span class="dot"></span><?= htmlspecialchars($cur['username']) ?><?= $cur['role']==='admin'?'（管理员）':'' ?></div>
-    <button class="zp-btn ghost" id="zpLogout">退出</button>
-    <?php if ($cur['role']==='admin'): ?>
-      <a class="zp-btn accent" href="admin.php">后台</a>
-    <?php endif; ?>
-  <?php else: ?>
-    <button class="zp-btn accent" data-login-open>登录 / 注册</button>
-  <?php endif; ?>
-  <span class="zp-tag">字辈 <?= count($settings['zi_bei'] ?? []) ?> 字 · <?= htmlspecialchars($settings['zi_bei'][0] ?? '') ?>→<?= htmlspecialchars(end($settings['zi_bei']) ?? '') ?></span>
-</header>
+<?php zp_render_header($cur, $settings, 'tree', ['login' => 'button']); ?>
 
 <!-- ============ 画布 ============ -->
 <div class="zp-stage" id="zpStage"></div>

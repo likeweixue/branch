@@ -6,6 +6,7 @@ require_once __DIR__ . '/core/config.php';
 require_once __DIR__ . '/core/storage.php';
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/seed.php';
+require_once __DIR__ . '/core/layout.php';
 
 zp_ensure_seed();
 
@@ -17,7 +18,9 @@ $cur = zp_current_user();
 $members = zp_load_json(MEMBERS_FILE, []);
 $settings = zp_load_json(SETTINGS_FILE, zp_default_settings());
 $users_local = zp_load_json(USERS_FILE, []);
-$zp_admin = ['members' => $members, 'settings' => $settings];
+$quotes_local = zp_load_json(QUOTES_FILE, []);
+$events_local = zp_load_json(EVENTS_FILE, []);
+$zp_admin = ['members' => $members, 'settings' => $settings, 'quotes' => $quotes_local, 'events' => $events_local];
 
 /* 服务端渲染辅助：取成员名 / 生成下拉选项（即便 JS 未加载也能显示数据） */
 function zp_name($ms, $id) {
@@ -32,6 +35,19 @@ function zp_opt($ms, $sel, $withNone) {
         $h .= '<option value="' . $m['id'] . '"' . ($m['id'] === $sel ? ' selected' : '') . '>' . $lab . '</option>';
     }
     return $h;
+}
+/** 截断文本（兼容未装 mbstring） */
+function zp_trunc($s, $n = 46) {
+    $s = trim((string) $s);
+    if ($s === '') return '';
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        return mb_strlen($s, 'UTF-8') > $n ? mb_substr($s, 0, $n, 'UTF-8') . '…' : $s;
+    }
+    $chars = preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY);
+    if (is_array($chars) && count($chars) > $n) {
+        return implode('', array_slice($chars, 0, $n)) . '…';
+    }
+    return $s;
 }
 ?>
 <!doctype html>
@@ -83,11 +99,15 @@ function zp_opt($ms, $sel, $withNone) {
 <body>
 
 <header class="zp-top">
-  <div class="zp-brand"><b>宗谱</b><span>ADMIN CONSOLE</span></div>
+  <a class="zp-brand" href="index.php" style="text-decoration:none;color:inherit"><b>宗谱</b><span>ADMIN CONSOLE</span></a>
+  <nav class="zp-nav">
+    <a href="index.php">族谱</a>
+    <a href="quotes.php">语录</a>
+    <a href="history.php">历史</a>
+  </nav>
   <div class="spacer"></div>
-  <span class="zp-tag"><?= htmlspecialchars($cur['username']) ?> · 管理员</span>
   <a class="zp-btn accent" href="editor.php">画布编辑器 →</a>
-  <a class="zp-btn" href="index.php">← 返回首页</a>
+  <div class="zp-user"><span class="dot"></span><?= zp_h($cur['username']) ?>（管理员）</div>
   <button class="zp-btn ghost" id="zpLogout">退出</button>
 </header>
 
@@ -97,6 +117,8 @@ function zp_opt($ms, $sel, $withNone) {
     <button data-tab="zb">字辈与排列</button>
     <button data-tab="lines">连线颜色</button>
     <button data-tab="users">用户管理</button>
+    <button data-tab="quotes">语录管理</button>
+    <button data-tab="history">历史管理</button>
   </div>
 
   <!-- 成员管理 -->
@@ -199,6 +221,74 @@ function zp_opt($ms, $sel, $withNone) {
         <td><?= htmlspecialchars($mem) ?></td>
         <td><?= htmlspecialchars($u['created'] ?? '') ?></td>
         <td><span class="ad-act" data-uedit="<?= $u['id'] ?>">编辑</span><span class="ad-act del" data-udel="<?= $u['id'] ?>">删除</span></td>
+      </tr><?php endforeach; ?></tbody>
+    </table>
+  </section>
+
+  <!-- 语录管理 -->
+  <section class="ad-panel" id="tab-quotes">
+    <h2>语录管理</h2>
+    <div class="ad-row"><button class="zp-btn accent" id="adAddQuote">+ 添加语录</button>
+      <span class="ad-muted">记下长辈的原话与嘱托；前台「语录」页按讲述人筛选展示。</span>
+      <a class="zp-btn ghost ad-top" href="quotes.php" style="text-decoration:none">查看前台 →</a></div>
+    <div class="ad-form" id="adQuoteForm" style="display:none">
+      <input type="hidden" id="q_id">
+      <div><label>讲述人（选家族成员）</label><select id="q_member"><?= zp_opt($members, '', true) ?></select></div>
+      <div><label>称谓 / 身份</label><input id="q_relation" type="text" placeholder="如 祖父、父亲、外祖母"></div>
+      <div><label>姓名（未选成员时手填）</label><input id="q_speaker" type="text" placeholder="如 麻家爷爷"></div>
+      <div><label>年份（可空）</label><input id="q_year" type="text" placeholder="如 1998 或 1990 年代"></div>
+      <div class="full"><label>语录内容 *</label><textarea id="q_text" placeholder="长辈的原话…"></textarea></div>
+      <div class="full"><label>场合 / 背景</label><input id="q_context" type="text" placeholder="如 年节家宴上的嘱托"></div>
+      <div class="full" style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="zp-btn ghost" id="qCancel">取消</button>
+        <button class="zp-btn accent" id="qSave">保存语录</button>
+      </div>
+    </div>
+    <table class="ad-t">
+      <thead><tr><th>讲述人</th><th>内容</th><th>场合 / 年份</th><th>操作</th></tr></thead>
+      <tbody id="qList"><?php foreach ($quotes_local as $q):
+        $sp = !empty($q['member_id']) ? zp_name($members, $q['member_id']) : (trim($q['speaker'] ?? '') ?: '佚名');
+        $meta = array_filter([trim($q['context'] ?? ''), trim($q['year'] ?? '')]);
+      ?><tr>
+        <td><?= zp_h($sp) ?><?= !empty($q['relation']) ? '<span class="ad-muted"> · ' . zp_h($q['relation']) . '</span>' : '' ?></td>
+        <td><?= zp_h(zp_trunc($q['text'] ?? '', 40)) ?></td>
+        <td><?= $meta ? zp_h(implode(' · ', $meta)) : '—' ?></td>
+        <td><span class="ad-act" data-qedit="<?= zp_h($q['id']) ?>">编辑</span><span class="ad-act del" data-qdel="<?= zp_h($q['id']) ?>">删除</span></td>
+      </tr><?php endforeach; ?></tbody>
+    </table>
+  </section>
+
+  <!-- 历史管理 -->
+  <section class="ad-panel" id="tab-history">
+    <h2>历史管理</h2>
+    <div class="ad-row"><button class="zp-btn accent" id="adAddEvent">+ 记录一件大事</button>
+      <span class="ad-muted">迁徙、婚嫁、添丁、求学、事业……按年代排序展示在前台「历史」页。</span>
+      <a class="zp-btn ghost ad-top" href="history.php" style="text-decoration:none">查看前台 →</a></div>
+    <div class="ad-form" id="adEventForm" style="display:none">
+      <input type="hidden" id="ev_id">
+      <div><label>年代 / 日期</label><input id="ev_date" type="text" placeholder="如 1949、1985-03、1980 年代"></div>
+      <div><label>分类</label><input id="ev_cat" type="text" list="evCats" placeholder="如 迁徙"><datalist id="evCats"><?php foreach (zp_event_categories() as $c): ?><option value="<?= zp_h($c) ?>"><?php endforeach; ?></datalist></div>
+      <div class="full"><label>标题 *</label><input id="ev_title" type="text" placeholder="如 祖父自外地迁居本地"></div>
+      <div class="full"><label>经过 / 说明</label><textarea id="ev_text" placeholder="时间、地点、人物、经过…"></textarea></div>
+      <div class="full"><label>关联成员（可多选）</label><div class="ad-chk" id="ev_members"></div></div>
+      <div class="full" style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="zp-btn ghost" id="evCancel">取消</button>
+        <button class="zp-btn accent" id="evSave">保存事件</button>
+      </div>
+    </div>
+    <table class="ad-t">
+      <thead><tr><th>年代</th><th>标题</th><th>分类</th><th>关联成员</th><th>操作</th></tr></thead>
+      <tbody id="evList"><?php foreach ($events_local as $ev):
+        $memNames = [];
+        foreach ((array) ($ev['member_ids'] ?? []) as $mid) {
+            if ($mid && zp_name($members, $mid) !== '—') $memNames[] = zp_name($members, $mid);
+        }
+      ?><tr>
+        <td><?= trim($ev['date'] ?? '') !== '' ? zp_h($ev['date']) : '待考' ?></td>
+        <td><?= zp_h($ev['title'] ?? '') ?></td>
+        <td><?= trim($ev['category'] ?? '') !== '' ? zp_h($ev['category']) : '—' ?></td>
+        <td><?= $memNames ? zp_h(implode('、', $memNames)) : '—' ?></td>
+        <td><span class="ad-act" data-evedit="<?= zp_h($ev['id']) ?>">编辑</span><span class="ad-act del" data-evdel="<?= zp_h($ev['id']) ?>">删除</span></td>
       </tr><?php endforeach; ?></tbody>
     </table>
   </section>

@@ -8,6 +8,13 @@ define('DATA_DIR', APP_ROOT . '/data');
 define('MEMBERS_FILE', DATA_DIR . '/members.json');
 define('USERS_FILE', DATA_DIR . '/users.json');
 define('SETTINGS_FILE', DATA_DIR . '/settings.json');
+define('QUOTES_FILE', DATA_DIR . '/quotes.json');
+define('EVENTS_FILE', DATA_DIR . '/events.json');
+
+/** 家族历史（大事记）可选分类 */
+function zp_event_categories() {
+    return ['迁徙', '婚嫁', '添丁', '求学', '事业', '家谱', '其他'];
+}
 
 // 默认设置（首次运行时写入）
 function zp_default_settings() {

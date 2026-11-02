@@ -12,6 +12,8 @@ dsh-startup-screen-main/
 # 首次运行由 core/seed.php 自动生成默认账号。
 data/*
 !data/members.json
+!data/quotes.json
+!data/events.json
 !data/settings.json
 
 # Local preview runtime: portable PHP binary + logs (downloaded by start.command)

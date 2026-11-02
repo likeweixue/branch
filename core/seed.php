@@ -34,10 +34,40 @@ function zp_seed_members() {
     ];
 }
 
+/** 默认语录（标注「示例」的条目请在后台替换为真实回忆） */
+function zp_seed_quotes() {
+    $now = date('Y-m-d H:i:s');
+    return [
+        ['id'=>'q1','member_id'=>'m1','speaker'=>'','relation'=>'祖父','text'=>'家和万事兴，勤俭能持家。做人先立品，做事要有始有终。','context'=>'示例 · 年节家宴上的嘱托','year'=>'','created'=>$now],
+        ['id'=>'q2','member_id'=>'m3','speaker'=>'','relation'=>'外祖父','text'=>'读书明理，行路识人。吃一点亏不算坏事，心要放宽。','context'=>'示例 · 待替换为真实语录','year'=>'','created'=>$now],
+        ['id'=>'q3','member_id'=>'m5','speaker'=>'','relation'=>'父亲','text'=>'自己的路自己走，但家里永远给你留着门。','context'=>'示例 · 待替换为真实语录','year'=>'','created'=>$now],
+    ];
+}
+
+/** 默认家族历史（第一条是真实事件，其余为「示例」条目，可在后台删除） */
+function zp_seed_events() {
+    $now = date('Y-m-d H:i:s');
+    return [
+        ['id'=>'e1','date'=>'2026','title'=>'家族电子谱建立','text'=>'启用宗谱系统（ZUPÚ），把族谱、长辈语录与家族历史第一次完整整理到线上。','category'=>'家谱','member_ids'=>[],'created'=>$now],
+        ['id'=>'e2','date'=>'','title'=>'示例：祖辈成家','text'=>'把祖辈成家的年份、地点与经过记在这里。（示例条目，可在后台修改或删除）','category'=>'婚嫁','member_ids'=>['m1','m2'],'created'=>$now],
+        ['id'=>'e3','date'=>'','title'=>'示例：父辈外出求学 / 工作','text'=>'记录父辈离开家乡、求学或工作的那一段经历。（示例条目，可在后台修改或删除）','category'=>'求学','member_ids'=>['m5'],'created'=>$now],
+    ];
+}
+
 function zp_ensure_seed() {
     // ---- 成员 ----
     if (!file_exists(MEMBERS_FILE) || count(zp_load_json(MEMBERS_FILE, [])) === 0) {
         zp_save_json(MEMBERS_FILE, zp_seed_members());
+    }
+
+    // ---- 语录 ----
+    if (!file_exists(QUOTES_FILE)) {
+        zp_save_json(QUOTES_FILE, zp_seed_quotes());
+    }
+
+    // ---- 家族历史 ----
+    if (!file_exists(EVENTS_FILE)) {
+        zp_save_json(EVENTS_FILE, zp_seed_events());
     }
 
     // ---- 账号（默认绑定本人 m14 刘永生）----
