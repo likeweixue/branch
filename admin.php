@@ -22,8 +22,14 @@ $users_local = zp_load_json(USERS_FILE, []);
 $quotes_local = zp_load_json(QUOTES_FILE, []);
 $events_local = zp_load_json(EVENTS_FILE, []);
 $photos_local = zp_load_json(PHOTOS_FILE, []);
+$lands_local = zp_load_json(LANDS_FILE, []);
+$graves_local = zp_load_json(GRAVES_FILE, []);
+$line_types = zp_line_types($settings);
 $subs_local = zp_subs_load();
-$zp_admin = ['members' => $members, 'settings' => $settings, 'quotes' => $quotes_local, 'events' => $events_local, 'photos' => $photos_local];
+$zp_admin = [
+    'members' => $members, 'settings' => $settings, 'quotes' => $quotes_local, 'events' => $events_local,
+    'photos' => $photos_local, 'lands' => $lands_local, 'graves' => $graves_local, 'line_types' => $line_types,
+];
 
 /* 服务端渲染辅助：取成员名 / 生成下拉选项（即便 JS 未加载也能显示数据） */
 function zp_name($ms, $id) {
@@ -90,8 +96,8 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
   .ad-form input,.ad-form select,.ad-form textarea{font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--hair);border-radius:8px;background:#fff;color:var(--ink);width:100%;outline:none;}
   .ad-form input:focus,.ad-form select:focus,.ad-form textarea:focus{border-color:var(--accent);}
   .ad-form textarea{resize:vertical;min-height:60px;}
-  .ad-chk{display:flex;flex-wrap:wrap;gap:10px;max-height:140px;overflow:auto;}
-  .ad-chk label{display:flex;align-items:center;gap:5px;font-weight:400;font-size:12px;color:var(--ink);}
+  .ad-chk{display:flex;flex-wrap:wrap;gap:8px 14px;max-height:168px;overflow:auto;padding:2px;}
+  .ad-chk label{display:flex;align-items:center;gap:5px;font-weight:400;font-size:12px;color:var(--ink);white-space:nowrap;}
   .ad-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
   .ad-row label{font-size:12px;font-weight:600;color:var(--ink-soft);min-width:84px;}
   .ad-row input[type=text],.ad-row select,.ad-row textarea{flex:1;font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--hair);border-radius:8px;background:#fff;color:var(--ink);outline:none;min-width:160px;}
@@ -125,6 +131,31 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
   .ad-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
   .ad-thumb.is-empty i{font-style:normal;font-family:var(--din);font-weight:700;font-size:14px;color:var(--accent);}
   .ad-thumb-wide{width:58px;height:44px;border-radius:6px;}
+  /* 连线类型编辑器 */
+  .ad-lines{display:flex;flex-direction:column;gap:10px;margin:14px 0 6px;}
+  .ad-line-row{display:grid;grid-template-columns:52px minmax(140px,1fr) 180px 96px 40px;gap:10px;align-items:center;
+    background:var(--bg);border:1px solid var(--hair-soft);border-radius:9px;padding:9px 12px;}
+  .ad-line-row input[type=color]{width:44px;height:30px;border:1px solid var(--hair);border-radius:6px;background:none;padding:2px;}
+  .ad-line-row input[type=text]{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--hair);
+    border-radius:7px;background:#fff;color:var(--ink);outline:none;width:100%;}
+  .ad-line-row .ln-prev{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;color:var(--muted);}
+  .ad-line-row .ln-prev i{display:block;height:2px;flex:1;border-radius:2px;min-width:18px;}
+  .ad-line-row .ln-kind{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--muted);text-align:right;}
+  .ad-line-row .ln-del{background:none;border:0;color:#e5484d;font-size:15px;line-height:1;padding:4px;}
+  .ad-line-row .ln-del:disabled{color:var(--hair);cursor:not-allowed;}
+  /* 土地流转 */
+  .ad-hist{display:flex;flex-direction:column;gap:10px;}
+  .ad-hist-row{display:grid;grid-template-columns:96px 150px minmax(120px,1fr) minmax(140px,1.4fr) 34px;gap:8px;align-items:center;
+    background:#fff;border:1px solid var(--hair-soft);border-radius:9px;padding:9px 11px;}
+  .ad-hist-row input,.ad-hist-row select{font:inherit;font-size:12.5px;padding:7px 9px;border:1px solid var(--hair);
+    border-radius:7px;background:#fff;color:var(--ink);outline:none;width:100%;}
+  .ad-hist-row .h-to{max-height:74px;overflow:auto;border:1px solid var(--hair);border-radius:7px;padding:5px 7px;background:#fff;}
+  .ad-hist-row .h-to label{display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:400;margin:1px 0;color:var(--ink);white-space:nowrap;}
+  .ad-hist-row .h-del{background:none;border:0;color:#e5484d;font-size:14px;padding:4px;}
+  /* 上传 */
+  .ad-up{display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;}
+  .ad-up input[type=file]{font-size:11.5px;color:var(--muted);max-width:230px;}
+  .ad-up .ad-muted{font-size:11px;}
   @media (max-width:760px){
     .ad-wrap{margin-top:66px;padding:0 12px;}
     .ad-panel{padding:14px;}
@@ -142,6 +173,8 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
     <a href="quotes.php">语录</a>
     <a href="album.php">相册</a>
     <a href="history.php">历史</a>
+    <a href="land.php">土地</a>
+    <a href="grave.php">坟茔</a>
     <a href="submit.php">续谱</a>
   </nav>
   <div class="spacer"></div>
@@ -154,11 +187,13 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
   <div class="ad-nav">
     <button data-tab="members" class="on">成员管理</button>
     <button data-tab="zb">字辈与排列</button>
-    <button data-tab="lines">连线颜色</button>
+    <button data-tab="lines">连线类型</button>
     <button data-tab="users">用户管理</button>
     <button data-tab="quotes">语录管理</button>
     <button data-tab="history">历史管理</button>
     <button data-tab="album">相册管理</button>
+    <button data-tab="land">土地管理</button>
+    <button data-tab="grave">坟茔管理</button>
     <button data-tab="review">续谱审核<?php $pend = zp_subs_pending_count($subs_local); ?><?php if ($pend > 0): ?> <span class="ad-badge"><?= $pend ?></span><?php endif; ?></button>
   </div>
 
@@ -178,6 +213,14 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
       <div><label>母亲</label><select id="m_mother"><?= zp_opt($members, '', true) ?></select></div>
       <div class="full"><label>配偶（两姓结姻 · 红线，可多选）</label><div class="ad-chk" id="m_spouse"><?php foreach ($members as $m): ?><label><input type="checkbox" id="sp_<?= $m['id'] ?>" value="<?= $m['id'] ?>"><?= htmlspecialchars($m['name']) . ($m['zi_bei'] ? '（' . htmlspecialchars($m['zi_bei']) . '）' : '') ?></label><?php endforeach; ?></div></div>
       <div><label>同辈排行（数字，越小越年长）</label><input id="m_order" type="number" value="1" min="1"></div>
+      <div><label>与父母的连线</label>
+        <select id="m_linktype">
+          <option value="">默认（父子 / 母子）</option>
+          <?php foreach ($line_types as $t): if ($t['kind'] !== '') continue; ?>
+            <option value="<?= zp_h($t['id']) ?>"><?= zp_h($t['label']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
       <div class="full">
         <label>头像链接（图床地址，可留空）</label>
         <div class="ad-ava-row">
@@ -236,14 +279,120 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
     <div class="ad-row" style="justify-content:flex-end"><button class="zp-btn accent" id="zbSave">保存字辈与启动页</button></div>
   </section>
 
-  <!-- 连线颜色 -->
+  <!-- 连线类型 -->
   <section class="ad-panel" id="tab-lines">
-    <h2>连线颜色</h2>
-    <p class="ad-muted">父子/母子默认浅线；两姓结姻（婚姻）默认红线；本人节点高亮色。</p>
-    <div class="ad-row"><label>父子 / 母子</label><div class="ad-color"><input type="color" id="ln_parent" value="<?= htmlspecialchars($settings['lines']['parent'] ?? '#cfd3d8') ?>"><span id="ln_parent_v" class="ad-muted"></span></div></div>
-    <div class="ad-row"><label>两姓结姻</label><div class="ad-color"><input type="color" id="ln_marriage" value="<?= htmlspecialchars($settings['lines']['marriage'] ?? '#e5484d') ?>"><span id="ln_marriage_v" class="ad-muted"></span></div></div>
-    <div class="ad-row"><label>本人高亮</label><div class="ad-color"><input type="color" id="ln_self" value="<?= htmlspecialchars($settings['lines']['self'] ?? '#ff7500') ?>"><span id="ln_self_v" class="ad-muted"></span></div></div>
-    <div class="ad-row" style="justify-content:flex-end"><button class="zp-btn accent" id="lnSave">保存连线颜色</button></div>
+    <h2>连线类型</h2>
+    <p class="ad-muted" style="line-height:1.8">每条线代表一种关系，前台右下角的图例会照着这里的配置显示。<br>
+      「父子 / 母子」和「两姓结姻」是两条基础线（不可删除，可改色改叫法）；其余可以自己加——比如「过继」「入赘」「义亲」，加完在成员表单的「与父母的连线」里就能选。</p>
+    <div id="lnList" class="ad-lines"></div>
+    <div class="ad-row"><button class="zp-btn ghost" id="lnAdd" type="button">＋ 新增一种线</button></div>
+    <div class="ad-row" style="margin-top:16px"><label>本人高亮</label>
+      <div class="ad-color"><input type="color" id="ln_self" value="<?= htmlspecialchars($settings['lines']['self'] ?? '#ff7500') ?>"><span class="ad-muted">登录者自己的节点描边</span></div>
+    </div>
+    <div class="ad-row" style="justify-content:flex-end"><button class="zp-btn accent" id="lnSave">保存连线类型</button></div>
+  </section>
+
+  <!-- 土地管理 -->
+  <section class="ad-panel" id="tab-land">
+    <h2>土地管理</h2>
+    <div class="ad-row"><button class="zp-btn accent" id="adAddLand">+ 录入地块</button>
+      <span class="ad-muted">记面积、位置与归属，再补上「哪年因为什么分给了谁」。填了经纬度就会出现在前台地图上。</span>
+      <a class="zp-btn ghost ad-top" href="land.php" style="text-decoration:none" target="_blank">查看前台 →</a></div>
+
+    <div class="ad-form" id="adLandForm" style="display:none">
+      <input type="hidden" id="ld_id">
+      <div><label>地块名称 *</label><input id="ld_name" type="text" placeholder="如 屋后坡地、大坵田"></div>
+      <div><label>状态</label><select id="ld_status"><?php foreach (zp_land_status() as $s): ?><option value="<?= zp_h($s) ?>"><?= zp_h($s) ?></option><?php endforeach; ?></select></div>
+      <div><label>面积</label><input id="ld_area" type="text" placeholder="如 2.3"></div>
+      <div><label>单位</label><input id="ld_unit" type="text" value="亩" placeholder="亩 / 分 / 平方米"></div>
+      <div class="full"><label>位置（小地名，越具体越好）</label><input id="ld_location" type="text" placeholder="如 村东头水井旁"></div>
+      <div><label>纬度（可空）</label><input id="ld_lat" type="text" placeholder="26.123456"></div>
+      <div><label>经度（可空）</label><input id="ld_lng" type="text" placeholder="113.123456"></div>
+      <div class="full"><label>现归（可多选）</label><div class="ad-chk" id="ld_owners"></div></div>
+      <div class="full"><label>备注</label><textarea id="ld_note" placeholder="四至、土质、种什么、有没有纠纷…"></textarea></div>
+
+      <div class="full">
+        <label>流转历史（这块地的来历：哪年、为什么、给了谁）</label>
+        <div id="ld_hist" class="ad-hist"></div>
+        <button class="zp-btn ghost" id="ld_addHist" type="button" style="margin-top:8px">＋ 加一条流转记录</button>
+      </div>
+
+      <div class="full">
+        <label>照片（每行一个图床直链，也可以直接上传）</label>
+        <textarea id="ld_photos" placeholder="https://图床/xxx.jpg&#10;uploads/202611/xxx.jpg"></textarea>
+        <div class="ad-up"><input type="file" id="ld_file" accept="image/*" multiple><span class="ad-muted">支持 jpg/png/webp，单张 ≤6MB，上传后自动填进上面的框</span></div>
+      </div>
+
+      <div class="full" style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="zp-btn ghost" id="ldCancel">取消</button>
+        <button class="zp-btn accent" id="ldSave">保存地块</button>
+      </div>
+    </div>
+
+    <table class="ad-t">
+      <thead><tr><th>名称</th><th>面积</th><th>位置</th><th>状态</th><th>归属</th><th>流转</th><th>操作</th></tr></thead>
+      <tbody id="ldList"><?php foreach ($lands_local as $l):
+        $own = [];
+        foreach ((array) ($l['owner_ids'] ?? []) as $mid) { $n = zp_name($members, $mid); if ($n !== '—') $own[] = $n; }
+        $hn = count((array) ($l['history'] ?? []));
+      ?><tr>
+        <td><?= zp_h($l['name'] ?? '') ?></td>
+        <td><?= trim((string) ($l['area'] ?? '')) !== '' ? zp_h($l['area'] . ' ' . ($l['unit'] ?? '亩')) : '—' ?></td>
+        <td><?= trim((string) ($l['location'] ?? '')) !== '' ? zp_h($l['location']) : '—' ?></td>
+        <td><?= zp_h($l['status'] ?? '在册') ?></td>
+        <td><?= $own ? zp_h(implode('、', $own)) : '—' ?></td>
+        <td class="ad-muted"><?= $hn ?> 条</td>
+        <td><span class="ad-act" data-ldedit="<?= zp_h($l['id']) ?>">编辑</span><span class="ad-act del" data-lddel="<?= zp_h($l['id']) ?>">删除</span></td>
+      </tr><?php endforeach; ?></tbody>
+    </table>
+  </section>
+
+  <!-- 坟茔管理 -->
+  <section class="ad-panel" id="tab-grave">
+    <h2>坟茔管理</h2>
+    <div class="ad-row"><button class="zp-btn accent" id="adAddGrave">+ 录入坟茔</button>
+      <span class="ad-muted">写上地名与经纬度，附一张照片，就不怕「哭错坟」了。族谱里只有标了已故的家人，鼠标悬停才会显示安葬地。</span>
+      <a class="zp-btn ghost ad-top" href="grave.php" style="text-decoration:none" target="_blank">查看前台 →</a></div>
+
+    <div class="ad-form" id="adGraveForm" style="display:none">
+      <input type="hidden" id="gv_id">
+      <div><label>墓名 *（可留空，按安葬人生成）</label><input id="gv_name" type="text" placeholder="如 刘子隆墓"></div>
+      <div><label>形制</label><select id="gv_type"><?php foreach (zp_grave_types() as $t): ?><option value="<?= zp_h($t) ?>"><?= zp_h($t) ?></option><?php endforeach; ?></select></div>
+      <div class="full"><label>安葬的家人（可多选，合葬就选多个）</label><div class="ad-chk" id="gv_members"></div></div>
+      <div><label>小地名</label><input id="gv_place" type="text" placeholder="如 弄袍坳"></div>
+      <div><label>朝向</label><input id="gv_facing" type="text" placeholder="如 坐北朝南"></div>
+      <div class="full"><label>详细地址（怎么走、找谁带路）</label><input id="gv_address" type="text" placeholder="如 从村口沿水泥路走 800 米，右手山坡第三台"></div>
+      <div><label>纬度（可空）</label><input id="gv_lat" type="text" placeholder="26.123456"></div>
+      <div><label>经度（可空）</label><input id="gv_lng" type="text" placeholder="113.123456"></div>
+      <div><label>立碑 / 下葬时间</label><input id="gv_date" type="text" placeholder="如 1985 或 民国二十四年"></div>
+      <div><label>最近祭扫</label><input id="gv_visited" type="text" placeholder="如 2026 清明"></div>
+      <div class="full"><label>备注</label><textarea id="gv_note" placeholder="碑文、后人、修缮记录…"></textarea></div>
+      <div class="full">
+        <label>照片（每行一个直链，也可以直接上传）</label>
+        <textarea id="gv_photos" placeholder="https://图床/xxx.jpg&#10;uploads/202611/xxx.jpg"></textarea>
+        <div class="ad-up"><input type="file" id="gv_file" accept="image/*" multiple><span class="ad-muted">拍一张墓碑或周边的样子，下一代才认得路</span></div>
+      </div>
+      <div class="full" style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="zp-btn ghost" id="gvCancel">取消</button>
+        <button class="zp-btn accent" id="gvSave">保存坟茔</button>
+      </div>
+    </div>
+
+    <table class="ad-t">
+      <thead><tr><th>墓名</th><th>安葬人</th><th>地名</th><th>坐标</th><th>祭扫</th><th>操作</th></tr></thead>
+      <tbody id="gvList"><?php foreach ($graves_local as $g):
+        $who = [];
+        foreach ((array) ($g['member_ids'] ?? []) as $mid) { $n = zp_name($members, $mid); if ($n !== '—') $who[] = $n; }
+        $geo = ($g['lat'] !== null && $g['lng'] !== null) ? number_format((float) $g['lat'], 4, '.', '') . ', ' . number_format((float) $g['lng'], 4, '.', '') : '—';
+      ?><tr>
+        <td><?= zp_h($g['name'] ?? '') ?></td>
+        <td><?= $who ? zp_h(implode('、', $who)) : '—' ?></td>
+        <td><?= trim((string) ($g['place'] ?? '')) !== '' ? zp_h($g['place']) : '—' ?></td>
+        <td class="ad-muted"><?= $geo ?></td>
+        <td><?= trim((string) ($g['visited'] ?? '')) !== '' ? zp_h($g['visited']) : '—' ?></td>
+        <td><span class="ad-act" data-gvedit="<?= zp_h($g['id']) ?>">编辑</span><span class="ad-act del" data-gvdel="<?= zp_h($g['id']) ?>">删除</span></td>
+      </tr><?php endforeach; ?></tbody>
+    </table>
   </section>
 
   <!-- 用户管理 -->

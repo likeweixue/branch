@@ -12,6 +12,36 @@
   var byId = {};
   members.forEach(function (m) { byId[m.id] = m; });
 
+  // 坟墓：member_id -> 坟（一个人只挂最近录入的一座）
+  var graveOf = {};
+  (DATA.graves || []).forEach(function (g) {
+    (g.member_ids || []).forEach(function (mid) {
+      if (!graveOf[mid]) graveOf[mid] = g;
+    });
+  });
+
+  /** 连线类型（与后端 zp_line_types 对齐；老数据回退到 lines） */
+  function lineTypes() {
+    var lt = settings.line_types;
+    if (!Array.isArray(lt) || !lt.length) {
+      lt = [
+        { id: 'lt1', label: '父子 / 母子', color: (settings.lines && settings.lines.parent) || '#cfd3d8', kind: 'parent' },
+        { id: 'lt2', label: '两姓结姻', color: (settings.lines && settings.lines.marriage) || '#e5484d', kind: 'marriage' }
+      ];
+    }
+    return lt;
+  }
+  function lineTypeById(id) {
+    var all = lineTypes();
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
+  }
+  function lineColorOf(kind, fallback) {
+    var all = lineTypes();
+    for (var i = 0; i < all.length; i++) if (all[i].kind === kind) return all[i].color || fallback;
+    return fallback;
+  }
+
   var COL_W = 400, ROW_H = 96, NODE_W = 176, NODE_H = 60, PAD = 80;
   var COL_W_V = 230, ROW_H_V = 170;   // 竖排：横向排兄弟、纵向排辈分，需容纳配偶错位
   var layoutMode = settings.layout === 'vertical' ? 'vertical' : 'horizontal';
@@ -166,14 +196,19 @@
     svg.appendChild(vp);
     stage.appendChild(svg);
 
-    var parentColor = (settings.lines && settings.lines.parent) || '#cfd3d8';
-    var marriageColor = (settings.lines && settings.lines.marriage) || '#e5484d';
+    var parentColor = lineColorOf('parent', (settings.lines && settings.lines.parent) || '#cfd3d8');
+    var marriageColor = lineColorOf('marriage', (settings.lines && settings.lines.marriage) || '#e5484d');
 
-    // 父子/母子连线
+    // 父子/母子连线（成员指定了关系线类型时，用该类型的颜色）
     members.forEach(function (m) {
       var p = primaryParent(m);
       if (p && pos[p.id] && pos[m.id]) {
-        gEdges.appendChild(edge(pos[p.id], pos[m.id], parentColor, layoutMode));
+        var c = parentColor;
+        if (m.link_type) {
+          var t = lineTypeById(m.link_type);
+          if (t && t.color) c = t.color;
+        }
+        gEdges.appendChild(edge(pos[p.id], pos[m.id], c, layoutMode));
       }
     });
     // 配偶连线（去重）
@@ -297,6 +332,16 @@
     var life = m.birth ? m.birth : '未知';
     if (m.death) life += ' ～ ' + m.death;
     var relText = call ? call : (me ? '（无直接血缘路径）' : '登录后显示称呼');
+    // 只有后台标了「已故」并且录了坟，才显示安葬地
+    var gv = (m.death && graveOf[m.id]) ? graveOf[m.id] : null;
+    var graveRow = '';
+    if (gv) {
+      var gp = gv.place || gv.address || '';
+      var shown = gp || '已记录';
+      graveRow = '<div class="t-row t-grave"><span>安葬</span><b>' +
+        (gp ? '<a href="grave.php#gv=' + encodeURIComponent(gv.id) + '">' + esc(shown) + '</a>' : esc(shown)) +
+        '</b></div>';
+    }
     tip.innerHTML =
       '<div class="t-head">' +
         (m.avatar
@@ -308,6 +353,7 @@
       '<div class="t-row"><span>生卒</span><b>' + esc(life) + '</b></div>' +
       '<div class="t-row"><span>字辈</span><b>' + esc(zb) + '</b></div>' +
       (m.bio ? '<div class="t-row"><span>简介</span><b style="font-weight:400;max-width:160px;text-align:right">' + esc(m.bio) + '</b></div>' : '') +
+      graveRow +
       '<div class="t-call"><span class="lab">称呼</span><span class="val">' + esc(relText) + '</span></div>';
     tip.classList.add('on');
     moveTip(e);
@@ -570,10 +616,21 @@
     setTimeout(function () { t.classList.remove('on'); }, 2200);
   }
 
+  /* ---------------- 图例（全部来自后台配置的连线类型） ---------------- */
+  function renderLegend() {
+    var box = document.getElementById('zpLegend');
+    if (!box) return;
+    var html = '';
+    lineTypes().forEach(function (t) {
+      var col = t.color || '#cfd3d8';
+      html += '<div><i style="background:' + esc(col) + '"></i>' + esc(t.label || '关系线') + '</div>';
+    });
+    box.innerHTML = html;
+  }
+
   /* ---------------- 启动 ---------------- */
   function boot() {
-    var legend = document.getElementById('zpLegend');
-    if (legend) legend.innerHTML = '<div><i style="background:' + ((settings.lines && settings.lines.parent) || '#cfd3d8') + '"></i>父子 / 母子</div><div><i style="background:' + ((settings.lines && settings.lines.marriage) || '#e5484d') + '"></i>两姓结姻</div>';
+    renderLegend();
     setupAuth();
     if (!members.length) {
       var em = document.getElementById('zpEmpty'); if (em) em.style.display = 'flex';

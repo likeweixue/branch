@@ -124,6 +124,17 @@ function zp_ensure_seed() {
         zp_save_json(PHOTOS_FILE, zp_seed_photos());
     }
 
+    // ---- 土地 / 坟墓（首次为空，由后台录入）----
+    if (!file_exists(LANDS_FILE)) {
+        zp_save_json(LANDS_FILE, []);
+    }
+    if (!file_exists(GRAVES_FILE)) {
+        zp_save_json(GRAVES_FILE, []);
+    }
+    if (!is_dir(UPLOAD_DIR)) {
+        @mkdir(UPLOAD_DIR, 0755, true);
+    }
+
     // ---- 账号（默认绑定本人 m14 刘永生）----
     if (!file_exists(USERS_FILE) || count(zp_load_json(USERS_FILE, [])) === 0) {
         $users = [

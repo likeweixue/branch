@@ -16,6 +16,12 @@ data/*
 !data/events.json
 !data/photos.json
 !data/settings.json
+!data/lands.json
+!data/graves.json
+
+# 后台上传的图片（土地 / 坟茔照片）：运行时数据，不入库
+uploads/*
+!uploads/.gitkeep
 
 # Local preview runtime: portable PHP binary + logs (downloaded by start.command)
 .runtime/

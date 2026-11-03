@@ -75,6 +75,38 @@ function zp_is_ancestor($members, $anc, $node) {
     return false;
 }
 
+/** 规范化图片地址数组（去空、去重、限量） */
+function zp_clean_photos($arr, $max = 12) {
+    $out = [];
+    if (!is_array($arr)) return $out;
+    foreach ($arr as $u) {
+        $u = is_string($u) ? zp_clean_url($u) : '';
+        if ($u !== '' && !in_array($u, $out, true)) $out[] = $u;
+        if (count($out) >= $max) break;
+    }
+    return $out;
+}
+
+/** 经纬度：非法或越界一律存 null（表示「未标点」） */
+function zp_coord($v, $min, $max) {
+    if ($v === null || $v === '') return null;
+    if (!is_numeric($v)) return null;
+    $f = (float) $v;
+    if ($f < $min || $f > $max) return null;
+    return round($f, 6);
+}
+
+/** 只保留真实存在的成员 id */
+function zp_member_ids($arr, $members) {
+    $out = [];
+    foreach ((array) $arr as $mid) {
+        if (is_string($mid) && $mid !== '' && zp_member_by_id($members, $mid) && !in_array($mid, $out, true)) {
+            $out[] = $mid;
+        }
+    }
+    return $out;
+}
+
 $action = $_GET['action'] ?? ($_POST['action'] ?? '');
 
 switch ($action) {
@@ -179,6 +211,10 @@ switch ($action) {
         $bio = trim($in['bio'] ?? '');
         $avatar = zp_clean_url($in['avatar'] ?? '');
         $order = (int) ($in['order'] ?? 1);
+        // 与父母的连线类型（取自定义关系线里的 id，空 = 用默认父/母线）
+        $link_type = preg_replace('/[^\w\-]/', '', (string) ($in['link_type'] ?? ''));
+        $validTypes = array_column(zp_line_types(zp_load_json(SETTINGS_FILE, zp_default_settings())), 'id');
+        if ($link_type !== '' && !in_array($link_type, $validTypes, true)) $link_type = '';
 
         if ($father_id && !zp_member_by_id($members, $father_id)) $father_id = null;
         if ($mother_id && !zp_member_by_id($members, $mother_id)) $mother_id = null;
@@ -206,6 +242,7 @@ switch ($action) {
             'death'      => $death ?: null,
             'bio'        => $bio,
             'avatar'     => $avatar,
+            'link_type'  => $link_type,
             'father_id'  => $father_id,
             'mother_id'  => $mother_id,
             'spouse_ids' => $spouse_ids,
@@ -323,7 +360,34 @@ switch ($action) {
         if (isset($in['lines']) && is_array($in['lines'])) {
             foreach (['parent', 'marriage', 'self'] as $k) {
                 if (isset($in['lines'][$k])) {
-                    $settings['lines'][$k] = $in['lines'][$k];
+                    $settings['lines'][$k] = zp_clean_color($in['lines'][$k], $settings['lines'][$k] ?? '#cfd3d8');
+                }
+            }
+        }
+        // 自定义关系线：名称 + 颜色 + 语义（parent / marriage / 自定义）
+        if (isset($in['line_types']) && is_array($in['line_types'])) {
+            $clean = [];
+            foreach ($in['line_types'] as $i => $t) {
+                if (!is_array($t)) continue;
+                $label = trim((string) ($t['label'] ?? ''));
+                if ($label === '') continue;
+                $kind = (string) ($t['kind'] ?? '');
+                if (!in_array($kind, ['parent', 'marriage'], true)) $kind = '';
+                $id = preg_replace('/[^\w\-]/', '', (string) ($t['id'] ?? ''));
+                if ($id === '') $id = 'lt' . ($i + 1);
+                $clean[] = [
+                    'id'    => $id,
+                    'label' => mb_substr($label, 0, 24),
+                    'color' => zp_clean_color($t['color'] ?? '', '#cfd3d8'),
+                    'kind'  => $kind,
+                ];
+            }
+            if ($clean) {
+                // 规范化：基础两条必留
+                $settings['line_types'] = zp_line_types(['line_types' => $clean]);
+                foreach ($settings['line_types'] as $t) {
+                    if ($t['kind'] === 'parent')   $settings['lines']['parent']   = $t['color'];
+                    if ($t['kind'] === 'marriage') $settings['lines']['marriage'] = $t['color'];
                 }
             }
         }
@@ -635,6 +699,192 @@ switch ($action) {
         zp_json($r, $r['ok'] ? 200 : 400);
         break;
 
+    /* ============ 土地：列表 / 保存 / 删除（管理员） ============ */
+    case 'list_lands':
+        require_admin();
+        zp_json(['ok' => true, 'lands' => zp_load_json(LANDS_FILE, [])]);
+        break;
+
+    case 'save_land':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $name = trim($in['name'] ?? '');
+        if ($name === '') zp_json(['ok' => false, 'msg' => '地块名称不能为空'], 400);
+
+        $lands   = zp_load_json(LANDS_FILE, []);
+        $members = zp_load_json(MEMBERS_FILE, []);
+        $id = trim($in['id'] ?? '');
+        $isNew = ($id === '' || zp_find_row($lands, $id) === null);
+
+        // 流转历史：只留有内容的分支，重新编号
+        $hist = [];
+        $hi = 0;
+        foreach ((array) ($in['history'] ?? []) as $h) {
+            if (!is_array($h)) continue;
+            $date = trim((string) ($h['date'] ?? ''));
+            $event = trim((string) ($h['event'] ?? ''));
+            $note = trim((string) ($h['note'] ?? ''));
+            $to = zp_member_ids($h['to_ids'] ?? [], $members);
+            if ($date === '' && $event === '' && $note === '' && !$to) continue;
+            $hist[] = ['id' => 'h' . (++$hi), 'date' => $date, 'event' => $event, 'to_ids' => $to, 'note' => $note];
+        }
+
+        $status = trim((string) ($in['status'] ?? '在册'));
+        if (!in_array($status, zp_land_status(), true)) $status = '在册';
+
+        $row = [
+            'name'      => $name,
+            'area'      => trim((string) ($in['area'] ?? '')),
+            'unit'      => (trim((string) ($in['unit'] ?? '')) ?: '亩'),
+            'location'  => trim((string) ($in['location'] ?? '')),
+            'lat'       => zp_coord($in['lat'] ?? null, -90, 90),
+            'lng'       => zp_coord($in['lng'] ?? null, -180, 180),
+            'owner_ids' => zp_member_ids($in['owner_ids'] ?? [], $members),
+            'status'    => $status,
+            'note'      => trim((string) ($in['note'] ?? '')),
+            'photos'    => zp_clean_photos($in['photos'] ?? []),
+            'history'   => $hist,
+        ];
+
+        if ($isNew) {
+            $row = ['id' => zp_next_id($lands, 'ld')] + $row;
+            $row['created'] = date('Y-m-d H:i:s');
+            $lands[] = $row;
+        } else {
+            $row = ['id' => $id] + $row;
+            foreach ($lands as &$ld) {
+                if ($ld['id'] === $id) {
+                    $row['created'] = $ld['created'] ?? date('Y-m-d H:i:s');
+                    $ld = $row;
+                    break;
+                }
+            }
+            unset($ld);
+        }
+        zp_save_json(LANDS_FILE, $lands);
+        zp_json(['ok' => true, 'id' => $row['id']]);
+        break;
+
+    case 'delete_land':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $id = trim($in['id'] ?? '');
+        if ($id === '') zp_json(['ok' => false, 'msg' => '缺少 id'], 400);
+        $lands = array_values(array_filter(zp_load_json(LANDS_FILE, []), fn($x) => ($x['id'] ?? '') !== $id));
+        zp_save_json(LANDS_FILE, $lands);
+        zp_json(['ok' => true]);
+        break;
+
+    /* ============ 坟墓：列表 / 保存 / 删除（管理员） ============ */
+    case 'list_graves':
+        require_admin();
+        zp_json(['ok' => true, 'graves' => zp_load_json(GRAVES_FILE, [])]);
+        break;
+
+    case 'save_grave':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $members = zp_load_json(MEMBERS_FILE, []);
+        $mid = zp_member_ids($in['member_ids'] ?? [], $members);
+        $name = trim($in['name'] ?? '');
+        if ($name === '' && $mid) {
+            foreach ($members as $m) { if ($m['id'] === $mid[0]) { $name = $m['name'] . '墓'; break; } }
+        }
+        if ($name === '') zp_json(['ok' => false, 'msg' => '请填写墓名，或选择安葬的家人'], 400);
+
+        $graves = zp_load_json(GRAVES_FILE, []);
+        $id = trim($in['id'] ?? '');
+        $isNew = ($id === '' || zp_find_row($graves, $id) === null);
+
+        $type = trim((string) ($in['type'] ?? '土坟'));
+        if (!in_array($type, zp_grave_types(), true)) $type = '土坟';
+
+        $row = [
+            'name'       => $name,
+            'member_ids' => $mid,
+            'place'      => trim((string) ($in['place'] ?? '')),
+            'address'    => trim((string) ($in['address'] ?? '')),
+            'lat'        => zp_coord($in['lat'] ?? null, -90, 90),
+            'lng'        => zp_coord($in['lng'] ?? null, -180, 180),
+            'facing'     => trim((string) ($in['facing'] ?? '')),
+            'type'       => $type,
+            'date'       => trim((string) ($in['date'] ?? '')),
+            'visited'    => trim((string) ($in['visited'] ?? '')),
+            'note'       => trim((string) ($in['note'] ?? '')),
+            'photos'     => zp_clean_photos($in['photos'] ?? []),
+        ];
+
+        if ($isNew) {
+            $row = ['id' => zp_next_id($graves, 'gv')] + $row;
+            $row['created'] = date('Y-m-d H:i:s');
+            $graves[] = $row;
+        } else {
+            $row = ['id' => $id] + $row;
+            foreach ($graves as &$gv) {
+                if ($gv['id'] === $id) {
+                    $row['created'] = $gv['created'] ?? date('Y-m-d H:i:s');
+                    $gv = $row;
+                    break;
+                }
+            }
+            unset($gv);
+        }
+        zp_save_json(GRAVES_FILE, $graves);
+        zp_json(['ok' => true, 'id' => $row['id']]);
+        break;
+
+    case 'delete_grave':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $id = trim($in['id'] ?? '');
+        if ($id === '') zp_json(['ok' => false, 'msg' => '缺少 id'], 400);
+        $graves = array_values(array_filter(zp_load_json(GRAVES_FILE, []), fn($x) => ($x['id'] ?? '') !== $id));
+        zp_save_json(GRAVES_FILE, $graves);
+        zp_json(['ok' => true]);
+        break;
+
+    /* ============ 本地上传图片（管理员，仅图片） ============ */
+    case 'upload_image':
+        require_post();
+        require_admin();
+        $f = $_FILES['file'] ?? null;
+        if (!$f || (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            zp_json(['ok' => false, 'msg' => '没有收到文件，或上传中断'], 400);
+        }
+        if ((int) $f['size'] > UPLOAD_MAX_BYTES) {
+            zp_json(['ok' => false, 'msg' => '图片超过 ' . round(UPLOAD_MAX_BYTES / 1048576) . 'MB，请压缩后再传'], 400);
+        }
+        $map = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif', 'image/avif' => 'avif'];
+        $mime = '';
+        if (class_exists('finfo')) {
+            $fi = new finfo(FILEINFO_MIME_TYPE);
+            $mime = (string) $fi->file($f['tmp_name']);
+        }
+        if (!isset($map[$mime])) {
+            // finfo 不可用时退回扩展名判断
+            $ext = strtolower(pathinfo((string) ($f['name'] ?? ''), PATHINFO_EXTENSION));
+            $byExt = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'gif' => 'image/gif', 'avif' => 'image/avif'];
+            if (isset($byExt[$ext])) { $mime = $byExt[$ext]; }
+        }
+        if (!isset($map[$mime])) zp_json(['ok' => false, 'msg' => '只支持 jpg / png / webp / gif / avif'], 400);
+
+        $sub = date('Ym');
+        $dir = UPLOAD_DIR . '/' . $sub;
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+            zp_json(['ok' => false, 'msg' => '上传目录不可写（uploads/）'], 500);
+        }
+        $fname = date('d') . '-' . bin2hex(random_bytes(8)) . '.' . $map[$mime];
+        if (!@move_uploaded_file($f['tmp_name'], $dir . '/' . $fname)) {
+            zp_json(['ok' => false, 'msg' => '保存失败，请检查 uploads/ 权限'], 500);
+        }
+        @chmod($dir . '/' . $fname, 0644);
+        zp_json(['ok' => true, 'url' => 'uploads/' . $sub . '/' . $fname]);
+        break;
+
     /* ============ 画布编辑器：整体保存树（含位置与关系） ============ */
     case 'save_tree':
         require_post();
@@ -682,6 +932,7 @@ switch ($action) {
                 'death'      => trim($m['death'] ?? '') ?: null,
                 'bio'        => trim($m['bio'] ?? ''),
                 'avatar'     => zp_clean_url($m['avatar'] ?? ''),
+                'link_type'  => preg_replace('/[^\w\-]/', '', (string) ($m['link_type'] ?? '')),
                 'father_id'  => (!empty($m['father_id']) && isset($byId[$m['father_id']])) ? $m['father_id'] : null,
                 'mother_id'  => (!empty($m['mother_id']) && isset($byId[$m['mother_id']])) ? $m['mother_id'] : null,
                 'spouse_ids' => $m['spouse_ids'],

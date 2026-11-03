@@ -28,6 +28,8 @@ function zp_nav_items() {
         'quotes'  => '语录',
         'album'   => '相册',
         'history' => '历史',
+        'land'    => '土地',
+        'grave'   => '坟茔',
         'submit'  => '续谱',
     ];
 }

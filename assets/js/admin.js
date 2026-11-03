@@ -129,6 +129,7 @@
       document.getElementById('m_father').value = m.father_id || '';
       document.getElementById('m_mother').value = m.mother_id || '';
       document.getElementById('m_order').value = m.order || 1;
+      document.getElementById('m_linktype').value = m.link_type || '';
       document.getElementById('m_bio').value = m.bio || '';
       document.getElementById('m_avatar').value = m.avatar || '';
       fillSpouseBox(document.getElementById('m_spouse'), id, m.spouse_ids || []);
@@ -140,6 +141,7 @@
       document.getElementById('m_father').value = '';
       document.getElementById('m_mother').value = '';
       document.getElementById('m_order').value = 1;
+      document.getElementById('m_linktype').value = '';
       fillSpouseBox(document.getElementById('m_spouse'), null, []);
       if (document.getElementById('m_avatar').__draw) document.getElementById('m_avatar').__draw();
     }
@@ -162,6 +164,7 @@
       mother_id: document.getElementById('m_mother').value || '',
       spouse_ids: spouse,
       order: parseInt(document.getElementById('m_order').value, 10) || 1,
+      link_type: document.getElementById('m_linktype').value || '',
       bio: document.getElementById('m_bio').value.trim(),
       avatar: document.getElementById('m_avatar').value.trim(),
     };
@@ -188,20 +191,67 @@
     api('save_settings', data, function (r) { if (r.ok) { toast('已保存'); loadAll(); } else toast(r.msg || '保存失败'); });
   });
 
-  /* ---------- 连线颜色 ---------- */
-  function bindColor(id, vid) {
-    var el = document.getElementById(id), v = document.getElementById(vid);
-    var upd = function () { if (v) v.textContent = el.value; };
-    el.addEventListener('input', upd); upd();
+  /* ---------- 连线类型（可增删改） ---------- */
+  var LT = (STATE.line_types || []).map(function (t) {
+    return { id: t.id, label: t.label, color: t.color, kind: t.kind || '' };
+  });
+
+  function renderLineTypes() {
+    var box = document.getElementById('lnList');
+    if (!box) return;
+    box.innerHTML = '';
+    LT.forEach(function (t, i) {
+      var base = (t.kind === 'parent' || t.kind === 'marriage');
+      var row = document.createElement('div');
+      row.className = 'ad-line-row';
+      row.innerHTML =
+        '<input type="color" value="' + esc(t.color) + '" data-i="' + i + '">' +
+        '<input type="text" value="' + esc(t.label) + '" maxlength="24" data-i="' + i + '" placeholder="这条线叫什么">' +
+        '<div class="ln-prev"><i style="background:' + esc(t.color) + '"></i><span>' + (t.kind === 'parent' ? '父子线' : t.kind === 'marriage' ? '姻亲线' : '自定义') + '</span></div>' +
+        '<div class="ln-kind">' + (base ? '基础' : '可选用') + '</div>' +
+        '<button class="ln-del" type="button" data-i="' + i + '"' + (base ? ' disabled title="基础线不可删除"' : ' title="删除这条线"') + '>✕</button>';
+      box.appendChild(row);
+    });
+    box.querySelectorAll('input[type=color]').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        LT[+inp.dataset.i].color = inp.value;
+        var prev = inp.parentNode.querySelector('.ln-prev i');
+        if (prev) prev.style.background = inp.value;
+      });
+    });
+    box.querySelectorAll('input[type=text]').forEach(function (inp) {
+      inp.addEventListener('input', function () { LT[+inp.dataset.i].label = inp.value; });
+    });
+    box.querySelectorAll('.ln-del').forEach(function (b) {
+      if (b.disabled) return;
+      b.addEventListener('click', function () {
+        LT.splice(+b.dataset.i, 1);
+        renderLineTypes();
+      });
+    });
   }
-  bindColor('ln_parent', 'ln_parent_v'); bindColor('ln_marriage', 'ln_marriage_v'); bindColor('ln_self', 'ln_self_v');
-  document.getElementById('lnSave').addEventListener('click', function () {
-    var data = { lines: {
-      parent: document.getElementById('ln_parent').value,
-      marriage: document.getElementById('ln_marriage').value,
-      self: document.getElementById('ln_self').value
-    } };
-    api('save_settings', data, function (r) { if (r.ok) toast('已保存连线颜色'); else toast(r.msg || '保存失败'); });
+  renderLineTypes();
+
+  var lnAdd = document.getElementById('lnAdd');
+  if (lnAdd) lnAdd.addEventListener('click', function () {
+    LT.push({ id: 'lt' + Date.now().toString(36).slice(-5), label: '', color: '#7a8797', kind: '' });
+    renderLineTypes();
+    var rows = document.querySelectorAll('#lnList .ad-line-row');
+    var last = rows[rows.length - 1];
+    if (last) last.querySelector('input[type=text]').focus();
+  });
+
+  var lnSave = document.getElementById('lnSave');
+  if (lnSave) lnSave.addEventListener('click', function () {
+    var clean = LT.filter(function (t) { return String(t.label || '').trim() !== ''; });
+    if (!clean.length) { toast('至少保留一条线'); return; }
+    api('save_settings', {
+      line_types: clean,
+      lines: { self: document.getElementById('ln_self').value }
+    }, function (r) {
+      if (r.ok) { toast('已保存连线类型'); setTimeout(function () { location.reload(); }, 500); }
+      else toast(r.msg || '保存失败');
+    });
   });
 
   /* ---------- 用户管理 ---------- */
@@ -485,6 +535,270 @@
     });
   });
 
+  /* ---------- 通用：多选成员 / 图片上传 ---------- */
+  function fillMemberChecks(box, selected) {
+    if (!box) return;
+    box.innerHTML = '';
+    var sel = selected || [];
+    STATE.members.forEach(function (m) {
+      var lab = document.createElement('label');
+      lab.innerHTML = '<input type="checkbox" value="' + m.id + '"' +
+        (sel.indexOf(m.id) !== -1 ? ' checked' : '') + '>' +
+        esc(m.name) + (m.zi_bei ? '（' + esc(m.zi_bei) + '）' : '');
+      box.appendChild(lab);
+    });
+  }
+
+  function bindUpload(fileId, taId) {
+    var input = document.getElementById(fileId);
+    var ta = document.getElementById(taId);
+    if (!input || !ta) return;
+    input.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(input.files || []);
+      if (!files.length) return;
+      input.disabled = true;
+      var urls = [], done = 0;
+      files.forEach(function (f) {
+        var fd = new FormData();
+        fd.append('file', f);
+        fetch('api.php?action=upload_image', { method: 'POST', body: fd })
+          .then(function (r) { return r.json(); })
+          .then(function (r) { if (r.ok) urls.push(r.url); else toast(r.msg || '上传失败'); })
+          .catch(function () { toast('上传失败'); })
+          .then(function () {
+            done++;
+            if (done < files.length) return;
+            if (urls.length) {
+              ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + urls.join('\n');
+            }
+            input.value = '';
+            input.disabled = false;
+            toast(urls.length ? '已上传 ' + urls.length + ' 张' : '没有成功上传的图片');
+          });
+      });
+    });
+  }
+  function photosOf(taId) {
+    return document.getElementById(taId).value.split('\n')
+      .map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+  }
+  fillMemberChecks(document.getElementById('gv_members'), []);
+  fillMemberChecks(document.getElementById('ld_owners'), []);
+  bindUpload('ld_file', 'ld_photos');
+  bindUpload('gv_file', 'gv_photos');
+
+  /* ---------- 土地 ---------- */
+  var lands = STATE.lands || [];
+
+  function addHistRow(data) {
+    var wrap = document.getElementById('ld_hist');
+    if (!wrap) return;
+    var row = document.createElement('div');
+    row.className = 'ad-hist-row';
+    row.innerHTML =
+      '<input type="text" class="h-date" placeholder="1982 / 1980 年代" value="' + esc(data && data.date || '') + '">' +
+      '<input type="text" class="h-event" placeholder="分家 / 卖出 / 征收" value="' + esc(data && data.event || '') + '">' +
+      '<div class="h-to"></div>' +
+      '<input type="text" class="h-note" placeholder="为什么分、怎么分" value="' + esc(data && data.note || '') + '">' +
+      '<button type="button" class="h-del" title="删掉这条">✕</button>';
+    fillMemberChecks(row.querySelector('.h-to'), (data && data.to_ids) || (data && data.to) || []);
+    row.querySelector('.h-del').addEventListener('click', function () { row.remove(); });
+    wrap.appendChild(row);
+  }
+  function collectHist() {
+    var out = [];
+    document.querySelectorAll('#ld_hist .ad-hist-row').forEach(function (row) {
+      var to = [];
+      row.querySelectorAll('.h-to input:checked').forEach(function (c) { to.push(c.value); });
+      out.push({
+        date: row.querySelector('.h-date').value.trim(),
+        event: row.querySelector('.h-event').value.trim(),
+        note: row.querySelector('.h-note').value.trim(),
+        to_ids: to
+      });
+    });
+    return out;
+  }
+
+  function openLandForm(id) {
+    var f = document.getElementById('adLandForm');
+    if (!f) return;
+    var l = id ? lands.filter(function (x) { return x.id === id; })[0] : null;
+    f.style.display = 'grid';
+    document.getElementById('ld_id').value = l ? l.id : '';
+    document.getElementById('ld_name').value = l ? (l.name || '') : '';
+    document.getElementById('ld_status').value = l ? (l.status || '在册') : '在册';
+    document.getElementById('ld_area').value = l ? (l.area || '') : '';
+    document.getElementById('ld_unit').value = l ? (l.unit || '亩') : '亩';
+    document.getElementById('ld_location').value = l ? (l.location || '') : '';
+    document.getElementById('ld_lat').value = (l && l.lat != null) ? l.lat : '';
+    document.getElementById('ld_lng').value = (l && l.lng != null) ? l.lng : '';
+    document.getElementById('ld_note').value = l ? (l.note || '') : '';
+    document.getElementById('ld_photos').value = l ? (l.photos || []).join('\n') : '';
+    fillMemberChecks(document.getElementById('ld_owners'), l ? (l.owner_ids || []) : []);
+    document.getElementById('ld_hist').innerHTML = '';
+    ((l && l.history) || []).forEach(addHistRow);
+    if (!l || !(l.history || []).length) addHistRow(null);
+    document.getElementById('ld_name').focus();
+    f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  var addLandBtn = document.getElementById('adAddLand');
+  if (addLandBtn) addLandBtn.addEventListener('click', function () { openLandForm(null); });
+  var ldCancel = document.getElementById('ldCancel');
+  if (ldCancel) ldCancel.addEventListener('click', function () { document.getElementById('adLandForm').style.display = 'none'; });
+  var ldAddHist = document.getElementById('ld_addHist');
+  if (ldAddHist) ldAddHist.addEventListener('click', function () { addHistRow(null); });
+
+  var ldSave = document.getElementById('ldSave');
+  if (ldSave) ldSave.addEventListener('click', function () {
+    var owners = [];
+    document.querySelectorAll('#ld_owners input:checked').forEach(function (c) { owners.push(c.value); });
+    var data = {
+      id: document.getElementById('ld_id').value,
+      name: document.getElementById('ld_name').value.trim(),
+      status: document.getElementById('ld_status').value,
+      area: document.getElementById('ld_area').value.trim(),
+      unit: document.getElementById('ld_unit').value.trim() || '亩',
+      location: document.getElementById('ld_location').value.trim(),
+      lat: document.getElementById('ld_lat').value.trim(),
+      lng: document.getElementById('ld_lng').value.trim(),
+      note: document.getElementById('ld_note').value.trim(),
+      photos: photosOf('ld_photos'),
+      owner_ids: owners,
+      history: collectHist()
+    };
+    if (!data.name) { toast('请填写地块名称'); return; }
+    api('save_land', data, function (r) {
+      if (r.ok) {
+        toast('已保存');
+        document.getElementById('adLandForm').style.display = 'none';
+        api('list_lands', {}, function (x) { if (x.ok) { lands = x.lands; renderLands(); } });
+      } else toast(r.msg || '保存失败');
+    });
+  });
+
+  function renderLands() {
+    var tb = document.getElementById('ldList');
+    if (!tb) return;
+    tb.innerHTML = '';
+    lands.forEach(function (l) {
+      var own = (l.owner_ids || []).map(nameOf).filter(function (n) { return n !== '—'; }).join('、') || '—';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + esc(l.name) + '</td>' +
+        '<td>' + (l.area ? esc(l.area + ' ' + (l.unit || '亩')) : '—') + '</td>' +
+        '<td>' + (l.location ? esc(l.location) : '—') + '</td>' +
+        '<td>' + esc(l.status || '在册') + '</td>' +
+        '<td>' + esc(own) + '</td>' +
+        '<td class="ad-muted">' + ((l.history || []).length) + ' 条</td>' +
+        '<td><span class="ad-act" data-ldedit="' + l.id + '">编辑</span><span class="ad-act del" data-lddel="' + l.id + '">删除</span></td>';
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll('[data-ldedit]').forEach(function (e) {
+      e.addEventListener('click', function () { openLandForm(e.getAttribute('data-ldedit')); });
+    });
+    tb.querySelectorAll('[data-lddel]').forEach(function (e) {
+      e.addEventListener('click', function () {
+        if (!confirm('确定删除这块地的记录？')) return;
+        api('delete_land', { id: e.getAttribute('data-lddel') }, function (r) {
+          if (r.ok) { toast('已删除'); api('list_lands', {}, function (x) { if (x.ok) { lands = x.lands; renderLands(); } }); }
+          else toast(r.msg || '删除失败');
+        });
+      });
+    });
+  }
+
+  /* ---------- 坟茔 ---------- */
+  var graves = STATE.graves || [];
+
+  function openGraveForm(id) {
+    var f = document.getElementById('adGraveForm');
+    if (!f) return;
+    var g = id ? graves.filter(function (x) { return x.id === id; })[0] : null;
+    f.style.display = 'grid';
+    document.getElementById('gv_id').value = g ? g.id : '';
+    document.getElementById('gv_name').value = g ? (g.name || '') : '';
+    document.getElementById('gv_type').value = g ? (g.type || '土坟') : '土坟';
+    document.getElementById('gv_place').value = g ? (g.place || '') : '';
+    document.getElementById('gv_facing').value = g ? (g.facing || '') : '';
+    document.getElementById('gv_address').value = g ? (g.address || '') : '';
+    document.getElementById('gv_lat').value = (g && g.lat != null) ? g.lat : '';
+    document.getElementById('gv_lng').value = (g && g.lng != null) ? g.lng : '';
+    document.getElementById('gv_date').value = g ? (g.date || '') : '';
+    document.getElementById('gv_visited').value = g ? (g.visited || '') : '';
+    document.getElementById('gv_note').value = g ? (g.note || '') : '';
+    document.getElementById('gv_photos').value = g ? (g.photos || []).join('\n') : '';
+    fillMemberChecks(document.getElementById('gv_members'), g ? (g.member_ids || []) : []);
+    document.getElementById('gv_name').focus();
+    f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  var addGraveBtn = document.getElementById('adAddGrave');
+  if (addGraveBtn) addGraveBtn.addEventListener('click', function () { openGraveForm(null); });
+  var gvCancel = document.getElementById('gvCancel');
+  if (gvCancel) gvCancel.addEventListener('click', function () { document.getElementById('adGraveForm').style.display = 'none'; });
+
+  var gvSave = document.getElementById('gvSave');
+  if (gvSave) gvSave.addEventListener('click', function () {
+    var who = [];
+    document.querySelectorAll('#gv_members input:checked').forEach(function (c) { who.push(c.value); });
+    var data = {
+      id: document.getElementById('gv_id').value,
+      name: document.getElementById('gv_name').value.trim(),
+      type: document.getElementById('gv_type').value,
+      place: document.getElementById('gv_place').value.trim(),
+      facing: document.getElementById('gv_facing').value.trim(),
+      address: document.getElementById('gv_address').value.trim(),
+      lat: document.getElementById('gv_lat').value.trim(),
+      lng: document.getElementById('gv_lng').value.trim(),
+      date: document.getElementById('gv_date').value.trim(),
+      visited: document.getElementById('gv_visited').value.trim(),
+      note: document.getElementById('gv_note').value.trim(),
+      photos: photosOf('gv_photos'),
+      member_ids: who
+    };
+    if (!data.name && !who.length) { toast('请填写墓名，或勾选安葬的家人'); return; }
+    api('save_grave', data, function (r) {
+      if (r.ok) {
+        toast('已保存');
+        document.getElementById('adGraveForm').style.display = 'none';
+        api('list_graves', {}, function (x) { if (x.ok) { graves = x.graves; renderGraves(); } });
+      } else toast(r.msg || '保存失败');
+    });
+  });
+
+  function renderGraves() {
+    var tb = document.getElementById('gvList');
+    if (!tb) return;
+    tb.innerHTML = '';
+    graves.forEach(function (g) {
+      var who = (g.member_ids || []).map(nameOf).filter(function (n) { return n !== '—'; }).join('、') || '—';
+      var geo = (g.lat != null && g.lng != null) ? (Number(g.lat).toFixed(4) + ', ' + Number(g.lng).toFixed(4)) : '—';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + esc(g.name) + '</td>' +
+        '<td>' + esc(who) + '</td>' +
+        '<td>' + (g.place ? esc(g.place) : '—') + '</td>' +
+        '<td class="ad-muted">' + geo + '</td>' +
+        '<td>' + (g.visited ? esc(g.visited) : '—') + '</td>' +
+        '<td><span class="ad-act" data-gvedit="' + g.id + '">编辑</span><span class="ad-act del" data-gvdel="' + g.id + '">删除</span></td>';
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll('[data-gvedit]').forEach(function (e) {
+      e.addEventListener('click', function () { openGraveForm(e.getAttribute('data-gvedit')); });
+    });
+    tb.querySelectorAll('[data-gvdel]').forEach(function (e) {
+      e.addEventListener('click', function () {
+        if (!confirm('确定删除这座坟的记录？')) return;
+        api('delete_grave', { id: e.getAttribute('data-gvdel') }, function (r) {
+          if (r.ok) { toast('已删除'); api('list_graves', {}, function (x) { if (x.ok) { graves = x.graves; renderGraves(); } }); }
+          else toast(r.msg || '删除失败');
+        });
+      });
+    });
+  }
+
   /* ---------- 全局 ---------- */
   document.getElementById('zpLogout').addEventListener('click', function () { api('logout', {}, function () { location.href = 'index.php'; }); });
 
@@ -496,6 +810,8 @@
     api('list_quotes', {}, function (r) { if (r.ok) { quotes = r.quotes; renderQuotes(); } });
     api('list_events', {}, function (r) { if (r.ok) { events = r.events; renderEvents(); } });
     api('list_photos', {}, function (r) { if (r.ok) { photos = r.photos; renderPhotos(); } });
+    api('list_lands', {}, function (r) { if (r.ok) { lands = r.lands; renderLands(); } });
+    api('list_graves', {}, function (r) { if (r.ok) { graves = r.graves; renderGraves(); } });
   }
 
   /* ---------- 续谱审核 ---------- */
@@ -529,6 +845,8 @@
   renderQuotes();
   renderEvents();
   renderPhotos();
+  renderLands();
+  renderGraves();
   var hashTab = (location.hash || '').replace(/^#/, '');
   if (hashTab) activateTab(hashTab);
   loadAll(); // 拉取最新成员、用户、语录、历史

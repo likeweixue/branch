@@ -35,5 +35,25 @@
         "brand3": "FAMILY TREE OS",
         "org": "家族族谱"
     },
-    "theme": "light"
+    "theme": "light",
+    "line_types": [
+        {
+            "id": "lt1",
+            "label": "父子 / 母子",
+            "color": "#cfd3d8",
+            "kind": "parent"
+        },
+        {
+            "id": "lt2",
+            "label": "两姓结姻",
+            "color": "#e5484d",
+            "kind": "marriage"
+        },
+        {
+            "id": "ltabc",
+            "label": "过继 / 承祧",
+            "color": "#7a5af8",
+            "kind": ""
+        }
+    ]
 }

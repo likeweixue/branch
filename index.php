@@ -35,9 +35,20 @@ $zp_startup = [
     'org'     => $su['org'] ?? '家族族谱',
 ];
 
+$zp_graves = [];
+foreach (zp_load_json(GRAVES_FILE, []) as $g) {
+    $zp_graves[] = [
+        'id'         => $g['id'] ?? '',
+        'member_ids' => $g['member_ids'] ?? [],
+        'place'      => $g['place'] ?? '',
+        'address'    => $g['address'] ?? '',
+    ];
+}
+
 $zp_data = [
     'members' => $members,
     'settings' => $settings,
+    'graves' => $zp_graves,
     'me' => $me,
     'role' => $cur ? $cur['role'] : null,
     'logged_in' => !empty($cur),

@@ -1,0 +1,62 @@
+/* ============================================================================
+ * ZMap 瓦片地图样式（配合 assets/js/zmap.js）
+ * ========================================================================== */
+.zmap{position:relative;overflow:hidden;background:#dfe4e2;cursor:grab;
+  border-radius:12px;border:1px solid var(--hair);user-select:none;
+  touch-action:none;}
+.zmap.grabbing{cursor:grabbing;}
+
+.zm-tiles,.zm-grid,.zm-marks{position:absolute;inset:0;}
+.zm-tiles{will-change:transform;}
+
+.zm-tile{position:absolute;width:256px;height:256px;display:block;
+  image-rendering:auto;transition:opacity .25s ease;}
+.zm-tile.dead{opacity:0;}
+
+/* 底图不可用时的「坐标纸」 */
+.zm-grid{display:none;
+  background-color:#1b1f24;
+  background-image:
+    linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+  background-size:64px 64px;}
+
+.zm-hint{position:absolute;left:10px;bottom:10px;z-index:4;
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  padding:4px 9px;border-radius:20px;
+  background:rgba(10,10,10,.62);color:#fff;opacity:0;transition:opacity .2s;}
+.zm-hint.on{opacity:1;}
+
+.zm-marks{pointer-events:none;z-index:3;}
+.zm-mark{position:absolute;left:0;top:0;pointer-events:auto;will-change:transform;}
+
+/* 标注：默认水滴针，底部对准坐标点 */
+.zm-pin{display:block;transform:translate(-50%,-100%);cursor:pointer;}
+.zm-pin i{display:block;width:14px;height:14px;border-radius:50% 50% 50% 0;
+  transform:rotate(-45deg);background:var(--accent,#ff7500);
+  border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);}
+.zm-pin:hover i{background:#fff;border-color:var(--accent,#ff7500);}
+
+/* 文字胶囊标注（土地用） */
+.zm-tag{display:block;transform:translate(-50%,-50%);white-space:nowrap;
+  font-family:var(--din);font-size:12px;letter-spacing:.04em;
+  padding:4px 10px;border-radius:20px;background:var(--card,#fff);
+  border:1px solid rgba(10,10,10,.16);color:var(--ink,#111);
+  box-shadow:0 4px 14px rgba(0,0,0,.14);cursor:pointer;transition:transform .12s,box-shadow .12s;}
+.zm-tag:hover{box-shadow:0 8px 22px rgba(0,0,0,.22);}
+
+/* 星辰标注（坟茔星空用） */
+.zm-star{display:block;transform:translate(-50%,-50%);cursor:pointer;}
+.zm-star i{display:block;width:10px;height:10px;border-radius:50%;
+  background:#fff;box-shadow:0 0 10px 3px rgba(255,255,255,.7);}
+
+.zm-ctrl{position:absolute;right:10px;top:10px;z-index:5;display:flex;flex-direction:column;gap:4px;}
+.zm-ctrl button{width:30px;height:30px;border-radius:8px;border:1px solid var(--hair);
+  background:var(--card,#fff);color:var(--ink,#111);font-size:15px;line-height:1;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);}
+.zm-ctrl button:hover{background:var(--accent,#ff7500);color:#fff;border-color:transparent;}
+
+.zm-scale{position:absolute;left:10px;top:10px;z-index:4;font-family:var(--mono);
+  font-size:10px;letter-spacing:.08em;color:#fff;background:rgba(10,10,10,.5);
+  padding:3px 8px;border-radius:20px;}

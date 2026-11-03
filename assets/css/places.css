@@ -1,0 +1,178 @@
+/* ============================================================================
+ * 土地 / 坟茔 两个页面共用样式
+ * 土地：左卡片、右地图（sticky）
+ * 坟茔：星空画布（深色）+ 地图俯视 + 名册
+ * ========================================================================== */
+
+/* ---------------- 土地 ---------------- */
+.pl-wrap { max-width: 1200px; }
+.pl-grid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 22px; align-items: start; margin-top: 22px; }
+
+.pl-list { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.pl-card { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px;
+  padding: 18px 20px 16px; box-shadow: 0 6px 20px rgba(0,0,0,.04);
+  transition: border-color .18s, box-shadow .18s, transform .18s; scroll-margin-top: 90px; }
+.pl-card:hover { border-color: rgba(255,117,0,.4); }
+.pl-card.on { border-color: var(--accent); box-shadow: 0 10px 30px rgba(255,117,0,.14); transform: translateX(2px); }
+
+.pl-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pl-head h3 { margin: 0; font-family: var(--din); font-size: 19px; font-weight: 700; letter-spacing: .04em; }
+.pl-status { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; padding: 2px 9px; border-radius: 20px;
+  border: 1px solid var(--hair); color: var(--ink-soft); background: var(--bg-2); }
+.pl-status[data-status="在册"] { color: #1a7f4b; border-color: rgba(26,127,75,.35); background: rgba(26,127,75,.08); }
+.pl-status[data-status="已分"] { color: #b26a00; border-color: rgba(178,106,0,.35); background: rgba(178,106,0,.08); }
+.pl-status[data-status="已卖"] { color: #a8322f; border-color: rgba(168,50,47,.35); background: rgba(168,50,47,.08); }
+.pl-status[data-status="已征"] { color: #5b53b8; border-color: rgba(91,83,184,.35); background: rgba(91,83,184,.08); }
+.pl-status[data-status="撂荒"] { color: var(--muted); }
+
+.pl-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: 12.5px; color: var(--muted);
+  font-family: var(--mono); letter-spacing: .02em; }
+.pl-meta b { color: var(--ink); font-weight: 600; }
+.pl-geo { color: var(--muted); opacity: .8; }
+.pl-locate { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; padding: 2px 8px; border-radius: 20px;
+  border: 1px solid var(--hair); background: transparent; color: var(--accent); }
+.pl-locate:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.pl-photos { display: flex; gap: 8px; margin-top: 14px; overflow-x: auto; padding-bottom: 2px; }
+.pl-photo { flex: 0 0 96px; height: 72px; border-radius: 8px; overflow: hidden; background: var(--bg-2); }
+.pl-photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s; }
+.pl-photo:hover img { transform: scale(1.06); }
+
+.pl-hist { margin-top: 16px; border-top: 1px dashed var(--hair-soft); padding-top: 12px; }
+.pl-hist-t { font-family: var(--mono); font-size: 10px; letter-spacing: .22em; color: var(--muted); margin-bottom: 10px; }
+.pl-hist ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pl-hist li { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 12px; font-size: 13px; }
+.pl-h-date { font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 2px; white-space: nowrap; }
+.pl-h-body { position: relative; padding-left: 14px; border-left: 1px solid var(--hair); }
+.pl-h-body::before { content: ""; position: absolute; left: -4px; top: 6px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--bg); border: 1.5px solid var(--accent); }
+.pl-h-body b { font-weight: 600; }
+.pl-h-to { color: var(--accent); font-size: 12px; margin-left: 8px; }
+.pl-h-body p { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.75; }
+
+/* 右侧地图 */
+.pl-side { position: sticky; top: 74px; }
+.pl-map { height: calc(100vh - 190px); min-height: 360px; background: var(--bg-2); }
+.pl-map-none { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; text-align: center; padding: 24px; background: var(--bg-2); z-index: 6; }
+.pl-map-none b { font-family: var(--din); font-size: 15px; }
+.pl-map-none span { font-size: 12px; color: var(--muted); line-height: 1.7; max-width: 240px; }
+.pl-map-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); flex-wrap: wrap; }
+.pl-tiles { display: flex; gap: 4px; }
+.pl-tiles button { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; padding: 3px 9px;
+  border-radius: 20px; border: 1px solid var(--hair); background: transparent; color: var(--muted); }
+.pl-tiles button.on { border-color: var(--ink); color: var(--ink); background: rgba(10,10,10,.05); }
+.pl-tip { font-size: 11.5px; color: var(--muted); line-height: 1.7; margin: 10px 0 0; }
+
+@media (max-width: 980px) {
+  .pl-grid { grid-template-columns: 1fr; }
+  .pl-side { position: static; order: -1; }
+  .pl-map { height: 340px; }
+}
+
+/* ---------------- 坟茔 ---------------- */
+.gv-wrap { max-width: 1200px; margin: 0 auto; padding: 88px 22px 72px; }
+.gv-hero { position: relative; padding: 6px 0 20px; border-bottom: 1px solid var(--hair); }
+.gv-hero h1 { font-family: var(--din); font-size: 34px; font-weight: 700; letter-spacing: .08em; margin: 8px 0; }
+.gv-hero p { margin: 0; color: var(--ink-soft); font-size: 14px; line-height: 1.85; }
+.gv-blank { margin-top: 28px; }
+
+.gv-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 20px 0 14px; }
+.gv-tabs { display: flex; gap: 4px; background: var(--bg-2); border-radius: 22px; padding: 3px; }
+.gv-tabs button { font-family: var(--din); font-size: 13px; letter-spacing: .1em; padding: 6px 18px;
+  border: 0; border-radius: 20px; background: transparent; color: var(--muted); transition: all .18s; }
+.gv-tabs button.on { background: var(--ink); color: #fff; }
+.gv-legend { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.gv-lg-title { color: var(--ink-soft); margin-right: 4px; }
+.gv-dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; display: inline-block;
+  box-shadow: 0 0 calc(6px * var(--s)) calc(2px * var(--s)) rgba(255,255,255,calc(var(--s) * .9)); }
+.gv-legend .gv-dot { background: #2b2f36; box-shadow: 0 0 calc(6px * var(--s)) calc(1px * var(--s)) rgba(40,60,120,calc(var(--s) * .5)); }
+
+/* 星空 */
+.gv-sky { position: relative; height: min(72vh, 620px); border-radius: 16px; overflow: hidden;
+  background: radial-gradient(120% 110% at 70% 8%, #141a2c 0%, #0a0d16 46%, #05070c 100%);
+  box-shadow: 0 18px 50px rgba(0,0,0,.28); }
+#gvCanvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+.gv-sky-hud { position: absolute; left: 22px; top: 18px; pointer-events: none; }
+.gv-sky-en { font-family: var(--mono); font-size: 10px; letter-spacing: .3em; color: rgba(255,255,255,.42); }
+.gv-sky-tip { font-family: var(--zh); font-size: 12.5px; color: rgba(255,255,255,.62); margin-top: 8px; letter-spacing: .04em; }
+
+.gv-tip { position: absolute; z-index: 8; pointer-events: none; opacity: 0; transform: translateY(4px);
+  transition: opacity .14s, transform .14s; max-width: 260px;
+  background: rgba(12,16,26,.94); border: 1px solid rgba(255,255,255,.14); border-radius: 10px;
+  padding: 10px 13px; color: #e9edf5; font-size: 12.5px; line-height: 1.7;
+  box-shadow: 0 12px 34px rgba(0,0,0,.5); backdrop-filter: blur(6px); }
+.gv-tip.on { opacity: 1; transform: none; }
+.gv-tip b { display: block; font-family: var(--din); font-size: 14px; letter-spacing: .04em; margin-bottom: 3px; }
+.gv-tip span { color: rgba(233,237,245,.66); }
+.gv-tip em { font-style: normal; color: #ffb066; }
+
+/* 选中详情 */
+.gv-detail { position: absolute; right: 16px; bottom: 16px; z-index: 9; width: min(320px, calc(100% - 32px));
+  background: rgba(12,16,26,.94); border: 1px solid rgba(255,255,255,.14); border-radius: 14px;
+  padding: 16px 16px 14px; color: #e9edf5; box-shadow: 0 20px 50px rgba(0,0,0,.5);
+  backdrop-filter: blur(8px); max-height: calc(100% - 32px); overflow-y: auto; }
+.gv-detail h3 { margin: 0 0 4px; font-family: var(--din); font-size: 17px; letter-spacing: .05em; }
+.gv-detail .d-who { font-size: 12px; color: rgba(233,237,245,.62); margin-bottom: 10px; }
+.gv-detail .d-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px;
+  padding: 5px 0; border-top: 1px solid rgba(255,255,255,.07); }
+.gv-detail .d-row span { color: rgba(233,237,245,.55); }
+.gv-detail .d-note { margin: 10px 0 0; font-size: 12px; line-height: 1.8; color: rgba(233,237,245,.75); }
+.gv-detail .d-photos { display: flex; gap: 6px; margin-top: 10px; }
+.gv-detail .d-photos img { width: 62px; height: 48px; object-fit: cover; border-radius: 6px; display: block; }
+.gv-detail .d-x { position: absolute; right: 10px; top: 8px; background: none; border: 0; color: rgba(255,255,255,.5);
+  font-size: 14px; }
+.gv-detail .d-x:hover { color: #fff; }
+
+/* 地图视图 */
+.gv-mapview { margin-top: 4px; }
+.gv-map { height: min(64vh, 560px); border-radius: 16px; overflow: hidden; }
+.gv-map-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); flex-wrap: wrap; gap: 8px; }
+
+/* 名册 */
+.gv-list { margin-top: 30px; }
+.gv-list-t { font-family: var(--din); font-size: 15px; letter-spacing: .12em; margin: 0 0 14px;
+  display: flex; align-items: baseline; gap: 10px; }
+.gv-list-t span { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--muted); font-weight: 400; }
+.gv-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; }
+
+.gv-card { position: relative; background: var(--card); border: 1px solid var(--card-line); border-radius: 14px;
+  padding: 18px 18px 16px; overflow: hidden; scroll-margin-top: 90px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.04); transition: border-color .18s, box-shadow .18s; }
+.gv-card:hover { border-color: rgba(255,117,0,.4); }
+.gv-card.on { border-color: var(--accent); box-shadow: 0 12px 32px rgba(255,117,0,.16); }
+.gv-card-glow { position: absolute; right: -30px; top: -30px; width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,117,0,.45) 0%, rgba(255,117,0,0) 70%); pointer-events: none; }
+.gv-card header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.gv-card h3 { margin: 0; font-family: var(--din); font-size: 18px; letter-spacing: .04em; }
+.gv-type { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--muted);
+  border: 1px solid var(--hair); border-radius: 20px; padding: 1px 8px; }
+.gv-who { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.gv-who span { font-size: 12px; color: var(--ink-soft); background: var(--bg-2);
+  border-radius: 4px; padding: 2px 8px; }
+.gv-meta { display: flex; flex-wrap: wrap; gap: 5px 16px; margin-top: 12px; font-size: 12px;
+  color: var(--muted); font-family: var(--mono); }
+.gv-meta b { color: var(--ink); font-weight: 600; }
+.gv-addr { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.7; }
+.gv-locate { margin-top: 12px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+  padding: 4px 10px; border-radius: 20px; border: 1px solid var(--hair); background: transparent;
+  color: var(--accent); }
+.gv-locate:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.gv-photos { display: flex; gap: 6px; margin-top: 12px; }
+.gv-photos img { width: 72px; height: 56px; object-fit: cover; border-radius: 7px; display: block; }
+.gv-note { margin: 12px 0 0; padding-top: 10px; border-top: 1px dashed var(--hair-soft);
+  font-size: 12.5px; line-height: 1.8; color: var(--ink-soft); }
+
+@media (max-width: 760px) {
+  .gv-wrap { padding: 74px 14px 56px; }
+  .gv-hero h1 { font-size: 26px; }
+  .gv-legend { margin-left: 0; }
+  .gv-sky { height: 66vh; }
+  .gv-detail { left: 12px; right: 12px; width: auto; bottom: 12px; }
+  .gv-cards { grid-template-columns: 1fr; }
+  .pl-hist li { grid-template-columns: 64px minmax(0, 1fr); gap: 8px; }
+}
