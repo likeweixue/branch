@@ -58,29 +58,46 @@
       });
     });
 
-    /* 2) 单元代表：优先"父母在谱中"的一方，其次男性；另一位作为配偶贴左侧 */
+    /* 2) 单元代表：世系更长的一方坐主位（配偶贴其左侧） */
+    var ancCache = {};
+    function ancDepth(id, guard) {
+      if (ancCache.hasOwnProperty(id)) return ancCache[id];
+      if (!id || !byId[id] || guard > 50) return 0;
+      ancCache[id] = 0;                       // 防环
+      var m = byId[id], d = 0;
+      if (m.father_id && byId[m.father_id]) d = Math.max(d, ancDepth(m.father_id, (guard || 0) + 1) + 1);
+      if (m.mother_id && byId[m.mother_id]) d = Math.max(d, ancDepth(m.mother_id, (guard || 0) + 1) + 1);
+      ancCache[id] = d;
+      return d;
+    }
     units.forEach(function (u) {
       var best = u.members[0], bestScore = -1;
       u.members.forEach(function (m) {
         var hasP = !!(m.father_id && byId[m.father_id]) || !!(m.mother_id && byId[m.mother_id]);
-        var score = (hasP ? 2 : 0) + (m.gender === 'male' ? 1 : 0);
+        var score = Math.min(ancDepth(m.id, 0), 9) * 10 + (hasP ? 2 : 0) + (m.gender === 'male' ? 1 : 0);
         if (score > bestScore) { bestScore = score; best = m; }
       });
       u.anchor = best;
       u.partner = u.members.filter(function (m) { return m.id !== best.id; })[0] || null;
     });
 
-    /* 3) 父子关系归到单元：优先父亲所在单元 */
+    /* 3) 父子关系归到单元：谁家世系更长就挂谁家
+          —— 夫妻双方都有父母时，若挂到只记了一两代的夫家，另一支（往往记录更完整）
+             就会被甩到左边、靠一条长线拉过来；按「上溯代数多的一方」归属，主干才是直线的。 */
     units.forEach(function (u) {
-      var p = null;
+      var p = null, bestScore = -1;
       u.ids.forEach(function (id) {
-        if (p) return;
         var m = byId[id]; if (!m) return;
-        if (m.father_id && unitOf[m.father_id] && unitOf[m.father_id] !== u) p = unitOf[m.father_id];
-        else if (m.mother_id && unitOf[m.mother_id] && unitOf[m.mother_id] !== u) p = unitOf[m.mother_id];
+        var cands = [];
+        if (m.father_id && unitOf[m.father_id] && unitOf[m.father_id] !== u) cands.push(m.father_id);
+        if (m.mother_id && unitOf[m.mother_id] && unitOf[m.mother_id] !== u) cands.push(m.mother_id);
+        cands.forEach(function (pid) {
+          var score = ancDepth(pid, 0);
+          if (score > bestScore) { bestScore = score; p = unitOf[pid]; }
+        });
       });
-      u.parent = p || null;
-      if (p) p.kids.push(u);
+      u.parent = (p && p !== u) ? p : null;
+      if (u.parent) u.parent.kids.push(u);
     });
 
     /* 4) 代数：一代一列 */
@@ -177,7 +194,7 @@
     });
 
     applyView();
-    fit();
+    initialView();
   }
 
   function edge(a, b, color, mode, marriage) {
@@ -426,18 +443,54 @@
   function applyView() {
     vp.setAttribute('transform', 'translate(' + view.x + ',' + view.y + ') scale(' + view.k + ')');
   }
-  function fit() {
+  /** 整棵树的包围盒（含卡片半宽/半高） */
+  function treeBox() {
     var minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
-    members.forEach(function (m) { if (!pos[m.id]) return; minX = Math.min(minX, pos[m.id].x); minY = Math.min(minY, pos[m.id].y); maxX = Math.max(maxX, pos[m.id].x); maxY = Math.max(maxY, pos[m.id].y); });
-    if (minX > maxX) return;
-    minX -= NODE_W; minY -= NODE_H; maxX += NODE_W; maxY += NODE_H;
-    var W = maxX - minX, H = maxY - minY;
+    members.forEach(function (m) {
+      if (!pos[m.id]) return;
+      minX = Math.min(minX, pos[m.id].x); minY = Math.min(minY, pos[m.id].y);
+      maxX = Math.max(maxX, pos[m.id].x); maxY = Math.max(maxY, pos[m.id].y);
+    });
+    if (minX > maxX) return null;
+    return { minX: minX - NODE_W, minY: minY - NODE_H, maxX: maxX + NODE_W, maxY: maxY + NODE_H };
+  }
+
+  function fit() {
+    var b = treeBox();
+    if (!b) return;
+    var W = b.maxX - b.minX, H = b.maxY - b.minY;
     var sw = stage.clientWidth, sh = stage.clientHeight;
     var k = Math.min(sw / W, sh / H, 1.2);
     view.k = k;
-    view.x = (sw - W * k) / 2 - minX * k;
-    view.y = (sh - H * k) / 2 - minY * k;
+    view.x = (sw - W * k) / 2 - b.minX * k;
+    view.y = (sh - H * k) / 2 - b.minY * k;
     applyView();
+  }
+
+  /**
+   * 首屏视图：世代一多，整棵树塞进一屏会缩到看不清。
+   * 这里仍是「整棵树」优先，但缩放不低于 MIN_K；跌破时改为对齐左上（最早一代），
+   * 用户拖一下、滚一下就能看后面的世代。
+   */
+  var MIN_K = 0.52;
+  function initialView() {
+    fit();
+    if (view.k >= MIN_K) return;
+    var b = treeBox();
+    if (!b) return;
+    view.k = MIN_K;
+    view.x = 44 - b.minX * MIN_K;
+    view.y = stage.clientHeight / 2 - ((b.minY + b.maxY) / 2) * MIN_K;
+    applyView();
+  }
+
+  /** 按钮缩放：以视口中心为锚点 */
+  function zoomBy(f) {
+    var sw = stage.clientWidth, sh = stage.clientHeight;
+    var nk = Math.max(0.15, Math.min(3, view.k * f));
+    view.x = sw / 2 - (sw / 2 - view.x) * (nk / view.k);
+    view.y = sh / 2 - (sh / 2 - view.y) * (nk / view.k);
+    view.k = nk; applyView();
   }
   function setupPanZoom() {
     var dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
@@ -468,6 +521,9 @@
   function setupControls() {
     document.getElementById('zpFit').addEventListener('click', fit);
     document.getElementById('zpReset').addEventListener('click', function () { view = { x: 0, y: 0, k: 1 }; view.k = 1; fit(); });
+    var zo = document.getElementById('zpZoomOut'), zi = document.getElementById('zpZoomIn');
+    if (zo) zo.addEventListener('click', function () { zoomBy(1 / 1.25); });
+    if (zi) zi.addEventListener('click', function () { zoomBy(1.25); });
     document.getElementById('zpToggle').addEventListener('click', function () {
       layoutMode = layoutMode === 'horizontal' ? 'vertical' : 'horizontal';
       this.textContent = layoutMode === 'horizontal' ? '⇄ 竖排' : '⇄ 横排';

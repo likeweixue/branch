@@ -6,6 +6,7 @@ require_once __DIR__ . '/core/config.php';
 require_once __DIR__ . '/core/storage.php';
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/seed.php';
+require_once __DIR__ . '/core/submissions.php';
 
 zp_ensure_seed();
 
@@ -595,6 +596,43 @@ switch ($action) {
         $photos = array_values(array_filter(zp_load_json(PHOTOS_FILE, []), fn($p) => ($p['id'] ?? '') !== $id));
         zp_save_json(PHOTOS_FILE, $photos);
         zp_json(['ok' => true]);
+        break;
+
+    /* ============ 续谱收集表：外部提交 / 管理员审核 ============ */
+    case 'submit_change':
+        require_post();
+        $in = zp_input();
+        // 蜜罐：正常用户看不见这个字段，填了基本都是机器人
+        if (trim((string) ($in['website'] ?? '')) !== '') {
+            zp_json(['ok' => true, 'msg' => '已提交，等待管理员审核']);
+        }
+        $r = zp_sub_add($in);
+        zp_json($r, $r['ok'] ? 200 : 400);
+        break;
+
+    case 'list_submissions':
+        require_admin();
+        $rows = zp_subs_load();
+        usort($rows, fn($a, $b) => strcmp((string) ($b['submitted'] ?? ''), (string) ($a['submitted'] ?? '')));
+        zp_json(['ok' => true, 'submissions' => $rows, 'pending' => zp_subs_pending_count($rows)]);
+        break;
+
+    case 'review_submission':
+        require_post();
+        require_admin();
+        $in = zp_input();
+        $id = trim((string) ($in['id'] ?? ''));
+        $act = (string) ($in['action'] ?? '');
+        $note = trim((string) ($in['note'] ?? ''));
+        if ($id === '') zp_json(['ok' => false, 'msg' => '缺少申请编号'], 400);
+        if ($act === 'approve') {
+            $r = zp_sub_approve($id, $cur['username'] ?? 'admin', $note);
+        } elseif ($act === 'reject') {
+            $r = zp_sub_reject($id, $cur['username'] ?? 'admin', $note);
+        } else {
+            $r = ['ok' => false, 'msg' => '未知操作'];
+        }
+        zp_json($r, $r['ok'] ? 200 : 400);
         break;
 
     /* ============ 画布编辑器：整体保存树（含位置与关系） ============ */

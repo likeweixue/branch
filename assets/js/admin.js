@@ -498,6 +498,29 @@
     api('list_photos', {}, function (r) { if (r.ok) { photos = r.photos; renderPhotos(); } });
   }
 
+  /* ---------- 续谱审核 ---------- */
+  document.querySelectorAll('[data-approve]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!confirm('批准后这条会直接写进族谱，确定？')) return;
+      b.disabled = true;
+      api('review_submission', { id: b.dataset.approve, action: 'approve' }, function (r) {
+        toast(r.msg || (r.ok ? '已合并' : '操作失败'));
+        if (r.ok) setTimeout(function () { location.reload(); }, 600); else b.disabled = false;
+      });
+    });
+  });
+  document.querySelectorAll('[data-reject]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var note = prompt('驳回原因（可留空，只做留档）：', '');
+      if (note === null) return;
+      b.disabled = true;
+      api('review_submission', { id: b.dataset.reject, action: 'reject', note: note }, function (r) {
+        toast(r.msg || '已驳回');
+        if (r.ok) setTimeout(function () { location.reload(); }, 600); else b.disabled = false;
+      });
+    });
+  });
+
   // 初始渲染
   fillZibeiDatalist();
   bindPreview('m_avatar', 'm_avatar_prev', '未设置');

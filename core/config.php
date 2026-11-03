@@ -11,6 +11,7 @@ define('SETTINGS_FILE', DATA_DIR . '/settings.json');
 define('QUOTES_FILE', DATA_DIR . '/quotes.json');
 define('EVENTS_FILE', DATA_DIR . '/events.json');
 define('PHOTOS_FILE', DATA_DIR . '/photos.json');
+define('SUBMISSIONS_FILE', DATA_DIR . '/submissions.json');   // 续谱收集表：待审的外部提交
 
 /**
  * 清洗外部图片地址（图床链接）

@@ -28,6 +28,7 @@ function zp_nav_items() {
         'quotes'  => '语录',
         'album'   => '相册',
         'history' => '历史',
+        'submit'  => '续谱',
     ];
 }
 

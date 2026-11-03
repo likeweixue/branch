@@ -130,7 +130,9 @@ $zp_data = [
 <div class="zp-empty" id="zpEmpty" style="display:none">尚无家族成员 · 请管理员在后台添加</div>
 
 <div class="zp-ctrl">
-  <button id="zpFit" title="适配视图">⤢</button>
+  <button id="zpZoomIn" title="放大">＋</button>
+  <button id="zpZoomOut" title="缩小">－</button>
+  <button id="zpFit" title="整棵树塞进一屏">⤢</button>
   <button id="zpReset" title="重置缩放">⟳</button>
   <button id="zpToggle" title="横排 / 竖排">⇄ 竖排</button>
 </div>

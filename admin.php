@@ -7,6 +7,7 @@ require_once __DIR__ . '/core/storage.php';
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/seed.php';
 require_once __DIR__ . '/core/layout.php';
+require_once __DIR__ . '/core/submissions.php';
 
 zp_ensure_seed();
 
@@ -21,6 +22,7 @@ $users_local = zp_load_json(USERS_FILE, []);
 $quotes_local = zp_load_json(QUOTES_FILE, []);
 $events_local = zp_load_json(EVENTS_FILE, []);
 $photos_local = zp_load_json(PHOTOS_FILE, []);
+$subs_local = zp_subs_load();
 $zp_admin = ['members' => $members, 'settings' => $settings, 'quotes' => $quotes_local, 'events' => $events_local, 'photos' => $photos_local];
 
 /* 服务端渲染辅助：取成员名 / 生成下拉选项（即便 JS 未加载也能显示数据） */
@@ -99,6 +101,18 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
   .ad-muted{color:var(--muted);font-size:12px;font-family:var(--mono);letter-spacing:.04em;}
   .ad-sel-member{font-size:12px;color:var(--muted);}
   .ad-top a{text-decoration:none;}
+  /* 续谱审核 */
+  .ad-badge{display:inline-block;min-width:16px;padding:0 5px;height:16px;line-height:16px;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:10px;font-family:var(--din);margin-left:2px;text-align:center;}
+  .ad-sub{border:1px solid var(--hair);border-radius:10px;padding:16px;margin-bottom:14px;background:var(--bg);}
+  .ad-sub-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px;font-size:14px;}
+  .ad-sub-note{margin:0 0 10px;font-size:12px;color:var(--ink-soft);background:#fff;border-left:2px solid var(--accent);
+    padding:8px 10px;border-radius:0 6px 6px 0;line-height:1.7;white-space:pre-wrap;}
+  .ad-diff{background:#fff;border-radius:8px;}
+  .ad-diff-k{color:var(--muted);font-size:12px;white-space:nowrap;width:104px;}
+  .ad-diff-old{color:var(--muted);}
+  .ad-diff-new{color:var(--ink);font-weight:600;}
+  .ad-sub-act{display:flex;gap:10px;margin-top:12px;}
   /* 头像 / 图片链接 */
   .ad-ava-row{display:flex;gap:14px;align-items:flex-start;}
   .ad-ava-prev{width:74px;height:74px;flex:0 0 74px;border-radius:10px;overflow:hidden;background:var(--bg-2);
@@ -128,6 +142,7 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
     <a href="quotes.php">语录</a>
     <a href="album.php">相册</a>
     <a href="history.php">历史</a>
+    <a href="submit.php">续谱</a>
   </nav>
   <div class="spacer"></div>
   <a class="zp-btn accent" href="editor.php">画布编辑器 →</a>
@@ -144,6 +159,7 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
     <button data-tab="quotes">语录管理</button>
     <button data-tab="history">历史管理</button>
     <button data-tab="album">相册管理</button>
+    <button data-tab="review">续谱审核<?php $pend = zp_subs_pending_count($subs_local); ?><?php if ($pend > 0): ?> <span class="ad-badge"><?= $pend ?></span><?php endif; ?></button>
   </div>
 
   <!-- 成员管理 -->
@@ -373,6 +389,88 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
         <td><span class="ad-act" data-phedit="<?= zp_h($ph['id']) ?>">编辑</span><span class="ad-act del" data-phdel="<?= zp_h($ph['id']) ?>">删除</span></td>
       </tr><?php endforeach; ?></tbody>
     </table>
+  </section>
+
+  <!-- 续谱审核 -->
+  <section class="ad-panel" id="tab-review">
+    <h2>续谱审核</h2>
+    <div class="ad-row">
+      <a class="zp-btn ghost" href="submit.php" style="text-decoration:none" target="_blank">打开收集表 →</a>
+      <span class="ad-muted">亲戚在「续谱」页提交的新增 / 修改都排在这里。批准即写进族谱，驳回只留档不删记录。</span>
+    </div>
+    <?php
+      $fields = zp_sub_fields();
+      $nof = function ($id) use ($members) { return zp_name($members, $id); };
+      $curId = [];
+      foreach ($members as $m) { $curId[$m['id']] = $m; }
+      $pendingRows = [];
+      $doneRows = [];
+      foreach ($subs_local as $s) {
+          if (($s['status'] ?? 'pending') === 'pending') { $pendingRows[] = $s; } else { $doneRows[] = $s; }
+      }
+      usort($pendingRows, fn($a, $b) => strcmp((string) ($b['submitted'] ?? ''), (string) ($a['submitted'] ?? '')));
+      usort($doneRows, fn($a, $b) => strcmp((string) ($b['reviewed']['at'] ?? ''), (string) ($a['reviewed']['at'] ?? '')));
+    ?>
+    <?php if (!$pendingRows): ?>
+      <p class="ad-muted" style="padding:14px 0">目前没有待审的提交。</p>
+    <?php endif; ?>
+    <?php foreach ($pendingRows as $s):
+      $p = $s['payload'] ?? [];
+      $isEdit = ($s['type'] ?? 'new') === 'edit';
+      $t = $isEdit ? ($curId[$s['target_id'] ?? ''] ?? null) : null;
+    ?>
+      <article class="ad-sub" data-sub="<?= zp_h($s['id']) ?>">
+        <header class="ad-sub-head">
+          <b><?= $isEdit ? '修正 · ' . zp_h($t['name'] ?? '（原成员已删除）') : '新增 · ' . zp_h($p['name'] ?? '') ?></b>
+          <span class="ad-muted">#<?= zp_h($s['id']) ?> · <?= zp_h($s['submitted'] ?? '') ?><?= !empty($s['submitter']['name']) ? ' · 提交人 ' . zp_h($s['submitter']['name']) : '' ?><?= !empty($s['submitter']['contact']) ? ' · ' . zp_h($s['submitter']['contact']) : '' ?></span>
+        </header>
+        <?php if (trim((string) ($s['note'] ?? '')) !== ''): ?>
+          <p class="ad-sub-note">说明：<?= zp_h($s['note']) ?></p>
+        <?php endif; ?>
+        <table class="ad-t ad-diff">
+          <thead><tr><th>字段</th><?php if ($isEdit): ?><th>现在</th><?php endif; ?><th>提交</th></tr></thead>
+          <tbody>
+          <?php $changed = 0; ?>
+          <?php foreach ($fields as $k => $label):
+            $new = $p[$k] ?? '';
+            $old = $t ? ($t[$k] ?? '') : null;
+            if ($isEdit && (string) zp_sub_val($k, $old, $nof) === (string) zp_sub_val($k, $new, $nof)) continue;
+            $changed++;
+          ?>
+            <tr>
+              <td class="ad-diff-k"><?= zp_h($label) ?></td>
+              <?php if ($isEdit): ?><td class="ad-diff-old"><?= zp_h(zp_sub_val($k, $old, $nof)) ?></td><?php endif; ?>
+              <td class="ad-diff-new"><?= zp_h(zp_sub_val($k, $new, $nof)) ?></td>
+            </tr>
+          <?php endforeach; ?>
+          <?php if ($isEdit && $changed === 0): ?>
+            <tr><td colspan="3" class="ad-muted">没有字段差异</td></tr>
+          <?php endif; ?>
+          </tbody>
+        </table>
+        <div class="ad-sub-act">
+          <button class="zp-btn accent" data-approve="<?= zp_h($s['id']) ?>">批准并合并</button>
+          <button class="zp-btn ghost" data-reject="<?= zp_h($s['id']) ?>">驳回</button>
+        </div>
+      </article>
+    <?php endforeach; ?>
+
+    <?php if ($doneRows): ?>
+      <h2 style="margin-top:24px">已处理</h2>
+      <table class="ad-t">
+        <thead><tr><th>编号</th><th>内容</th><th>结果</th><th>处理时间</th></tr></thead>
+        <tbody>
+        <?php foreach (array_slice($doneRows, 0, 60) as $s): ?>
+          <tr>
+            <td class="ad-muted">#<?= zp_h($s['id']) ?></td>
+            <td><?= ($s['type'] ?? 'new') === 'edit' ? '修正 · ' : '新增 · ' ?><?= zp_h($s['payload']['name'] ?? '') ?></td>
+            <td><?= ($s['status'] ?? '') === 'approved' ? '已合并' : '已驳回' ?></td>
+            <td class="ad-muted"><?= zp_h($s['reviewed']['at'] ?? '') ?></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php endif; ?>
   </section>
 </div>
 
