@@ -276,10 +276,15 @@
     if (map) return;
     var el = document.getElementById('gvMap');
     var geo = graves.filter(function (g) { return g.lat != null && g.lng != null; });
+    var savedBase = 'plain';
+    try {
+      var sb = localStorage.getItem('zp_grave_base');
+      if (sb === 'plain' || sb === 'gaode' || sb === 'atlas') savedBase = sb;
+    } catch (e) {}
     map = new ZMap(el, {
       center: geo.length ? [geo[0].lat, geo[0].lng] : [26.0, 113.0],
       zoom: geo.length ? 12 : 9,
-      base: 'atlas',
+      base: savedBase,
       theme: 'dark'
     });
     map.setMarkers(geo.map(function (g) {
@@ -296,12 +301,17 @@
     if (geo.length) map.fitMarkers();
     var tiles = document.getElementById('gvTiles');
     if (tiles) {
+      tiles.querySelectorAll('button').forEach(function (x) {
+        x.classList.toggle('on', x.getAttribute('data-tile') === map.base);
+      });
       tiles.addEventListener('click', function (e) {
         var b = e.target.closest('button');
         if (!b) return;
         tiles.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); });
         b.classList.add('on');
-        map.setBase(b.getAttribute('data-tile'));
+        var kind = b.getAttribute('data-tile');
+        map.setBase(kind);
+        try { localStorage.setItem('zp_grave_base', kind); } catch (err) {}
       });
       map.on('basechange', function (k) {
         tiles.querySelectorAll('button').forEach(function (x) {

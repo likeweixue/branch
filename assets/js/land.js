@@ -49,17 +49,19 @@
       return;
     }
 
+    // 记住上次选的底图（默认素白）
+    var savedBase = 'plain';
+    try {
+      var sb = localStorage.getItem('zp_land_base');
+      if (sb === 'plain' || sb === 'gaode' || sb === 'atlas') savedBase = sb;
+    } catch (e) {}
+
     map = new ZMap(box, {
       center: [geo[0].lat, geo[0].lng],
       zoom: 13,
-      base: 'atlas',
+      base: savedBase,
       theme: 'light'
     });
-
-    // 记住上次选的底图
-    var savedBase = null;
-    try { savedBase = localStorage.getItem('zp_land_base'); } catch (e) {}
-    if (savedBase && savedBase !== 'atlas') map.setBase(savedBase);
 
     map.setMarkers(geo.map(function (l) {
       var sub = [];

@@ -68,7 +68,7 @@
 
 /* 地图视图 */
 .pl-side { position: sticky; top: 74px; }
-.pl-map { height: calc(100vh - 190px); min-height: 360px; background: var(--bg-2); position: relative; }
+.pl-map { height: calc(100vh - 190px); min-height: 360px; position: relative; }
 .pl-map-none { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 8px; text-align: center; padding: 24px; background: var(--bg-2); z-index: 8; }
 .pl-map-none b { font-family: var(--din); font-size: 15px; }

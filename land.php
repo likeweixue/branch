@@ -172,9 +172,9 @@ $zp_land = ['lands' => $js, 'isAdmin' => $isAdmin];
       <div class="pl-map-foot">
         <span id="plMapStat"><?= $withCoord ? $withCoord . ' 块地已标点' : '暂无地块标了坐标' ?></span>
         <div class="pl-tiles" id="plTiles">
-          <button data-tile="atlas" class="on" title="离线底图，不联网也能用">典藏</button>
-          <button data-tile="gaode" title="在线瓦片，国内较快；坐标为 GCJ-02，与标点可能有偏移">高德</button>
-          <button data-tile="none" title="坐标纸">坐标纸</button>
+          <button data-tile="plain" class="on" title="浅灰极简底图">素白</button>
+          <button data-tile="gaode" title="高德原色瓦片，信息最全，但色块偏多">高德</button>
+          <button data-tile="atlas" title="离线底图，不联网也能用">离线</button>
         </div>
       </div>
       <?php if (!$withCoord && $isAdmin): ?>
@@ -189,6 +189,7 @@ $zp_land = ['lands' => $js, 'isAdmin' => $isAdmin];
 
 <script>window.ZP_LAND = <?= json_encode($zp_land, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script src="<?= zp_asset('assets/js/nav.js') ?>"></script>
+<script src="<?= zp_asset('assets/data/world-land.js') ?>"></script>
 <script src="<?= zp_asset('assets/js/zmap.js') ?>"></script>
 <script src="<?= zp_asset('assets/js/land.js') ?>"></script>
 </body>

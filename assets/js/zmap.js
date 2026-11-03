@@ -1,15 +1,19 @@
 /* ============================================================================
  * ZMap —— 零依赖的极简地图（拖拽平移 / 滚轮缩放 / 标注 / 悬停）
  *
- *   var map = new ZMap(el, { center: [lat, lng], zoom: 13, base: 'atlas', theme: 'light' });
+ *   var map = new ZMap(el, { center: [lat, lng], zoom: 13, base: 'plain', theme: 'light' });
  *   map.setMarkers([{ id, lat, lng, html, cls, title }]);
  *   map.on('markerclick', fn);
  *
- * 底图有三种：
- *   atlas  离线「典藏」底图 —— 本地 Canvas 绘制经纬网、比例尺、指北针。
- *          不联网、不依赖任何瓦片服务，所以永远不会 404，离线也能用。
- *   gaode  高德在线瓦片（国内最快，但 GCJ-02 坐标与 WGS-84 标点有偏移）
+ * 底图：
+ *   plain  「素白」—— 高德瓦片 + 降饱和滤镜，浅灰底、白陆地、细线条，
+ *          观感接近 Positron / Radiocast 那类极简风格。
+ *   gaode  高德原色瓦片（信息最全，但色块多、花）
+ *   atlas  离线「典藏」—— 本地 Canvas 画经纬网、比例尺、指北针，零请求
  *   none   坐标纸
+ *
+ * 缩到 z ≤ 3 时自动切成「地球」：用 assets/data/world-land.js 的陆地轮廓
+ * 做正交投影，浅灰海面 + 白陆地 + 柔光，脚下那块地会亮成一个小点。
  *
  * 在线瓦片连续失败会自动退回 atlas，不会留一片空白。
  * ========================================================================== */
@@ -17,8 +21,16 @@ window.ZMap = (function () {
   'use strict';
 
   var TILE = 256;
+  var GLOBE_MAX = 3;          // 缩放 ≤ 这个级别就用地球视图
+  var RAD = Math.PI / 180;
 
   var BASES = {
+    plain: {
+      url: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+      sub: ['1', '2', '3', '4'],
+      max: 18,
+      filter: 'plain'
+    },
     gaode: {
       url: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
       sub: ['1', '2', '3', '4'],
@@ -33,14 +45,23 @@ window.ZMap = (function () {
       grid: 'rgba(124,112,94,.20)', grid5: 'rgba(124,112,94,.40)',
       text: 'rgba(110,99,82,.82)', ring: 'rgba(124,112,94,.30)',
       ink: 'rgba(80,70,55,.92)',
-      blob: '168,148,110', blobA: 0.085
+      blob: '168,148,110', blobA: 0.085,
+      // 地球：浅灰海、近白陆地、几乎看不见的岸线
+      ocean: '#e1e5ea', land: '#fdfdfd', coast: 'rgba(120,128,138,.26)',
+      grat: 'rgba(120,128,138,.13)', limb: 'rgba(120,128,138,.22)',
+      dot: '#e5484d', dotRing: 'rgba(255,255,255,.9)',
+      label: 'rgba(96,106,118,.92)', labelHalo: 'rgba(255,255,255,.85)'
     },
     dark: {
       bg: '#0d1320', bg2: '#070a11',
       grid: 'rgba(150,180,255,.13)', grid5: 'rgba(150,180,255,.28)',
       text: 'rgba(160,190,240,.7)', ring: 'rgba(150,180,255,.22)',
       ink: 'rgba(200,220,255,.9)',
-      blob: '56,104,196', blobA: 0.15
+      blob: '56,104,196', blobA: 0.15,
+      ocean: '#070d17', land: '#212c40', coast: 'rgba(125,165,225,.34)',
+      grat: 'rgba(120,160,220,.11)', limb: 'rgba(120,160,220,.22)',
+      dot: '#ff7a6b', dotRing: 'rgba(10,15,25,.9)',
+      label: 'rgba(178,198,226,.88)', labelHalo: 'rgba(6,10,18,.8)'
     }
   };
 
@@ -61,6 +82,17 @@ window.ZMap = (function () {
     h = ((h ^ (h >>> 13)) * 1274126177) | 0;
     return (h ^ (h >>> 16)) >>> 0;
   }
+
+  /* 地球视图上的地名：只放一小撮，够让球不空就行 */
+  var GLOBE_LABELS = [
+    ['北京', 39.90, 116.41], ['上海', 31.23, 121.47], ['广州', 23.13, 113.26],
+    ['成都', 30.57, 104.07], ['乌鲁木齐', 43.83, 87.62], ['哈尔滨', 45.80, 126.53],
+    ['拉萨', 29.65, 91.14], ['台北', 25.03, 121.56],
+    ['东京', 35.68, 139.69], ['首尔', 37.57, 126.98], ['新德里', 28.61, 77.21],
+    ['莫斯科', 55.75, 37.62], ['伦敦', 51.51, -0.13], ['巴黎', 48.86, 2.35],
+    ['开罗', 30.04, 31.24], ['悉尼', -33.87, 151.21], ['纽约', 40.71, -74.01],
+    ['洛杉矶', 34.05, -118.24], ['圣保罗', -23.55, -46.63], ['开普敦', -33.92, 18.42]
+  ];
 
   /** 把任意正数收成最接近的 1 / 2 / 5 × 10^n */
   function niceNum(v) {
@@ -83,9 +115,9 @@ window.ZMap = (function () {
   function ZMap(el, opt) {
     opt = opt || {};
     this.el = el;
-    this.base = opt.base || opt.tile || 'atlas';
+    this.base = opt.base || opt.tile || 'plain';
     this.theme = opt.theme || 'light';
-    this.minZoom = opt.minZoom || 3;
+    this.minZoom = opt.minZoom || 2;
     this.maxZoom = opt.maxZoom || 18;
     this.markers = [];
     this.handlers = {};
@@ -135,6 +167,7 @@ window.ZMap = (function () {
       mk('＋', '放大', function () { self0.zoomAt(self0.z + 1, self0.w / 2, self0.h / 2); });
       mk('－', '缩小', function () { self0.zoomAt(self0.z - 1, self0.w / 2, self0.h / 2); });
       mk('◉', '全部标点入镜', function () { self0.fitMarkers(); });
+      mk('◒', '看地球（缩到世界）', function () { self0.toGlobe(); });
       el.appendChild(ctrl);
     }
 
@@ -245,6 +278,54 @@ window.ZMap = (function () {
     this.render();
   };
 
+  /** 缩到世界级，看一眼地球 */
+  ZMap.prototype.toGlobe = function () {
+    var m = this.markers[0];
+    var c = this.center();
+    this.setView(m ? m.lat : c.lat, m ? m.lng : c.lng, 2);
+  };
+
+  /** 当前是否走地球视图 */
+  ZMap.prototype.useGlobe = function () {
+    return this.base !== 'none' && this.z <= GLOBE_MAX && !!window.ZP_WORLD_LAND;
+  };
+
+  /** 地球视图的几何：球心、半径、正交投影函数 */
+  ZMap.prototype._globe = function () {
+    var w = this.w, h = this.h;
+    var c = this.center();
+    var lat0 = c.lat * RAD, lng0 = c.lng * RAD;
+    var sin0 = Math.sin(lat0), cos0 = Math.cos(lat0);
+    var R = Math.min(w, h) * 0.32 * Math.pow(1.8, this.z - 2);
+    R = Math.max(40, Math.min(R, Math.max(w, h) * 2.2));
+    var cx = w / 2, cy = h / 2;
+    var lastA = null;          // 背面点的方位角记忆，避免逼近对跖点时方向乱跳
+
+    /** 经纬度 → 视图空间单位向量（Z > 0 即在可见半球） */
+    function view(lon, lat) {
+      var phi = lat * RAD, dlam = lon * RAD - lng0;
+      var cp = Math.cos(phi), sp = Math.sin(phi), cd = Math.cos(dlam);
+      return [cp * Math.sin(dlam), cos0 * sp - sin0 * cp * cd, sin0 * sp + cos0 * cp * cd];
+    }
+
+    function project(lon, lat) {
+      var phi = lat * RAD, dlam = lon * RAD - lng0;
+      var cosphi = Math.cos(phi), sinphi = Math.sin(phi), cosd = Math.cos(dlam);
+      var cosc = sin0 * sinphi + cos0 * cosphi * cosd;
+      var x = cosphi * Math.sin(dlam);
+      var y = cos0 * sinphi - sin0 * cosphi * cosd;
+      if (cosc < 0) {          // 背面：压到轮廓线上，跨地平线的陆地才不会穿帮
+        var r = Math.sqrt(x * x + y * y);
+        var a = r > 0.02 ? Math.atan2(y, x) : (lastA == null ? 0 : lastA);
+        lastA = a;
+        return [Math.cos(a), Math.sin(a), false];
+      }
+      lastA = null;
+      return [x, y, true];
+    }
+    return { cx: cx, cy: cy, R: R, project: project, view: view };
+  };
+
   ZMap.prototype.center = function () {
     var w = this.w || this.el.clientWidth, h = this.h || this.el.clientHeight;
     return { lat: y2lat(this.cy / TILE, this.z), lng: x2lon(this.cx / TILE, this.z), zoom: this.z, w: w, h: h };
@@ -257,7 +338,9 @@ window.ZMap = (function () {
     var w = this.w || this.el.clientWidth, h = this.h || this.el.clientHeight;
     pad = pad || 64;
     var best = this.minZoom;
-    for (var z = this.maxZoom; z >= this.minZoom; z--) {
+    // 最多放到 16 级：再往里瓦片往往是空白，标点会飘在一片白（或黑）上
+    var zTop = Math.min(this.maxZoom, 16);
+    for (var z = zTop; z >= this.minZoom; z--) {
       var xs = pts.map(function (m) { return lon2x(m.lng, z) * TILE; });
       var ys = pts.map(function (m) { return lat2y(m.lat, z) * TILE; });
       var dx = Math.max.apply(null, xs) - Math.min.apply(null, xs);
@@ -301,15 +384,26 @@ window.ZMap = (function () {
   ZMap.prototype.renderLayer = function () {
     var w = this.w, h = this.h;
 
+    // 缩到世界级 → 画地球（比瓦片好看，也不为几张世界瓦片跑一趟网络）
+    if (this.useGlobe()) {
+      this.gridLayer.style.display = 'none';
+      this.tileLayer.style.opacity = '0';
+      this._dropTiles();
+      this.baseCanvas.style.opacity = '1';
+      this.hint.classList.remove('on');
+      this.renderGlobe();
+      return;
+    }
+    this.baseCanvas.style.opacity = '0';
+
     if (this.base === 'atlas') {
       this.gridLayer.style.display = 'none';
       this.tileLayer.style.display = 'none';
-      this.baseCanvas.style.display = 'block';
+      this.baseCanvas.style.opacity = '1';
       this.hint.classList.remove('on');
       this.renderBase();
       return;
     }
-    this.baseCanvas.style.display = 'none';
 
     var def = BASES[this.base];
     if (!def) {
@@ -322,6 +416,8 @@ window.ZMap = (function () {
     }
     this.gridLayer.style.display = 'none';
     this.tileLayer.style.display = 'block';
+    this.tileLayer.style.opacity = '1';
+    this.tileLayer.setAttribute('data-base', this.base);
 
     var z = this.z;
     var px0 = this.cx - w / 2, py0 = this.cy - h / 2;
@@ -372,16 +468,22 @@ window.ZMap = (function () {
     }
   };
 
+  /** 清掉所有瓦片（切底图 / 切地球时用） */
+  ZMap.prototype._dropTiles = function () {
+    for (var k in this._tiles) {
+      if (this._tiles[k].parentNode) this._tiles[k].parentNode.removeChild(this._tiles[k]);
+    }
+    this._tiles = {};
+    this.tileLayer.innerHTML = '';
+  };
+
   /** 在线瓦片挂了 → 静默切到离线底图 */
   ZMap.prototype.fallbackBase = function () {
     if (this._fellBack) return;
     this._fellBack = true;
     var msg = '底图连不上 · 已切到离线底图';
     this.base = 'atlas';
-    for (var k in this._tiles) {
-      if (this._tiles[k].parentNode) this._tiles[k].parentNode.removeChild(this._tiles[k]);
-    }
-    this._tiles = {};
+    this._dropTiles();
     this.render();
     this.hint.textContent = msg;
     this.hint.classList.add('on');
@@ -549,8 +651,190 @@ window.ZMap = (function () {
     ctx.fillText('N', nx, ny + 14);
   };
 
+  /* ------------------------------------------------------------------
+   * 地球视图：正交投影 + 世界陆地轮廓
+   * 浅色主题下就是「浅灰海面 / 白陆地 / 一圈细边」，和 Radiocast 那种
+   * 极简地图一个味道；深色主题则变成深海的蓝。
+   * ------------------------------------------------------------------ */
+  ZMap.prototype.renderGlobe = function () {
+    var c = this.baseCanvas, ctx = this.baseCtx;
+    var w = this.w, h = this.h;
+    if (!w || !h) return;
+
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+      c.style.width = w + 'px';
+      c.style.height = h + 'px';
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    var t = THEMES[this.theme] || THEMES.light;
+    var G = this._globe();
+    var cx = G.cx, cy = G.cy, R = G.R, project = G.project, view = G.view;
+
+    // 球体本身
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = t.ocean;
+    ctx.fillRect(0, 0, w, h);
+
+    // 经纬网（很淡，只为让球有点体积）
+    ctx.strokeStyle = t.grat;
+    ctx.lineWidth = 1;
+    var i, p;
+    for (var lon = -180; lon < 180; lon += 30) {
+      ctx.beginPath();
+      var pen = false;
+      for (var lat = -85; lat <= 85; lat += 5) {
+        p = project(lon, lat);
+        if (!p[2]) { pen = false; continue; }
+        var sx = cx + p[0] * R, sy = cy - p[1] * R;
+        if (pen) ctx.lineTo(sx, sy); else { ctx.moveTo(sx, sy); pen = true; }
+      }
+      ctx.stroke();
+    }
+    for (var la = -60; la <= 60; la += 30) {
+      ctx.beginPath();
+      var started = false;
+      for (var lo = -180; lo <= 180; lo += 5) {
+        p = project(lo, la);
+        if (!p[2]) { started = false; continue; }
+        var lx = cx + p[0] * R, ly = cy - p[1] * R;
+        if (started) ctx.lineTo(lx, ly); else { ctx.moveTo(lx, ly); started = true; }
+      }
+      ctx.stroke();
+    }
+
+    // 陆地：先用 z=0 平面把多边形裁到可见半球（3D 里是真平面，裁得准），
+    // 再把落在轮廓线上的相邻点沿圆弧补密，避免出现直线切口。
+    var rings = window.ZP_WORLD_LAND || [];
+
+    function clipZ(poly) {
+      var out = [];
+      for (var k = 0; k < poly.length; k++) {
+        var A = poly[k], B = poly[(k + 1) % poly.length];
+        var ain = A[2] >= 0, bin = B[2] >= 0;
+        if (ain) out.push(A);
+        if (ain !== bin) {
+          var tt = A[2] / (A[2] - B[2]);
+          out.push([A[0] + (B[0] - A[0]) * tt, A[1] + (B[1] - A[1]) * tt, 0]);
+        }
+      }
+      return out;
+    }
+
+    ctx.beginPath();
+    for (i = 0; i < rings.length; i++) {
+      var r = rings[i], n = r.length / 2;
+      var poly = [];
+      for (var j = 0; j < n; j++) poly.push(view(r[j * 2] / 100, r[j * 2 + 1] / 100));
+      var clipped = clipZ(poly);
+      if (clipped.length < 3) continue;         // 整个在背面
+
+      var scr = [], onLimb = [];
+      for (j = 0; j < clipped.length; j++) {
+        var v = clipped[j];
+        if (v[2] === 0) {
+          var mm = Math.sqrt(v[0] * v[0] + v[1] * v[1]) || 1;
+          scr.push([v[0] / mm, v[1] / mm]);
+          onLimb.push(true);
+        } else {
+          scr.push([v[0], v[1]]);
+          onLimb.push(false);
+        }
+      }
+
+      for (j = 0; j < scr.length; j++) {
+        var a = scr[j], b = scr[(j + 1) % scr.length];
+        var X = cx + a[0] * R, Y = cy - a[1] * R;
+        if (j === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+        if (onLimb[j] && onLimb[(j + 1) % scr.length]) {
+          var A1 = Math.atan2(a[1], a[0]), A2 = Math.atan2(b[1], b[0]);
+          var dA = A2 - A1;
+          while (dA > Math.PI) dA -= Math.PI * 2;
+          while (dA < -Math.PI) dA += Math.PI * 2;
+          var steps = Math.max(1, Math.round(Math.abs(dA) / 0.07));
+          for (var s = 1; s < steps; s++) {
+            var ang = A1 + dA * s / steps;
+            ctx.lineTo(cx + Math.cos(ang) * R, cy - Math.sin(ang) * R);
+          }
+        }
+      }
+      ctx.closePath();
+    }
+    ctx.fillStyle = t.land;
+    ctx.fill();
+    ctx.strokeStyle = t.coast;
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    // 地名（球够大时才标；小屏上宁可干净，也不要糊成一团）
+    if (R > 150) {
+      ctx.font = '11px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (i = 0; i < GLOBE_LABELS.length; i++) {
+        var L = GLOBE_LABELS[i];
+        var lp = project(L[2], L[1]);
+        if (!lp[2]) continue;
+        // 贴着轮廓的标签会被裁掉，往里挪一点
+        var dist = Math.sqrt(lp[0] * lp[0] + lp[1] * lp[1]);
+        if (dist > 0.93) continue;
+        var TX = cx + lp[0] * R, TY = cy - lp[1] * R;
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = t.labelHalo;
+        ctx.strokeText(L[0], TX, TY);
+        ctx.fillStyle = t.label;
+        ctx.fillText(L[0], TX, TY);
+      }
+    }
+
+    // 受光：左上亮一点、右下压暗一点，球就有了立体感
+    var sh = ctx.createRadialGradient(cx - R * 0.36, cy - R * 0.42, R * 0.08, cx, cy, R * 1.08);
+    sh.addColorStop(0, 'rgba(255,255,255,.16)');
+    sh.addColorStop(0.55, 'rgba(255,255,255,0)');
+    sh.addColorStop(1, 'rgba(0,0,0,.07)');
+    ctx.fillStyle = sh;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    // 一圈细边
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.strokeStyle = t.limb;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 球下方的柔影
+    var sg = ctx.createRadialGradient(cx, cy + R * 1.02, R * 0.1, cx, cy + R * 1.02, R * 0.9);
+    sg.addColorStop(0, 'rgba(30,40,60,.10)');
+    sg.addColorStop(1, 'rgba(30,40,60,0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(0, 0, w, h);
+  };
+
   ZMap.prototype.renderMarks = function () {
     var w = this.w, h = this.h;
+
+    if (this.useGlobe()) {
+      var G = this._globe();
+      this.markers.forEach(function (m) {
+        if (!m.el) return;
+        var p = G.project(m.lng, m.lat);
+        if (!p[2]) { m.el.style.display = 'none'; return; }
+        m.el.style.display = '';
+        m.el.classList.add('is-globed');
+        m.el.style.transform = 'translate(' + Math.round(G.cx + p[0] * G.R) + 'px,' +
+                               Math.round(G.cy - p[1] * G.R) + 'px)';
+      });
+      return;
+    }
+
     var px0 = this.cx - w / 2, py0 = this.cy - h / 2;
     this.markers.forEach(function (m) {
       if (!m.el) return;
@@ -558,6 +842,7 @@ window.ZMap = (function () {
       var y = lat2y(m.lat, this.z) * TILE - py0;
       if (x < -80 || y < -80 || x > w + 80 || y > h + 80) { m.el.style.display = 'none'; return; }
       m.el.style.display = '';
+      m.el.classList.remove('is-globed');
       m.el.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)';
     }, this);
   };
@@ -566,11 +851,8 @@ window.ZMap = (function () {
     this.base = kind;
     this.tileOk = 0; this.tileFail = 0;
     this._fellBack = false;
-    for (var k in this._tiles) {
-      if (this._tiles[k].parentNode) this._tiles[k].parentNode.removeChild(this._tiles[k]);
-    }
-    this._tiles = {};
-    this.tileLayer.innerHTML = '';
+    this._dropTiles();
+    this.tileLayer.setAttribute('data-base', kind);
     this.hint.classList.remove('on');
     this.render();
   };
