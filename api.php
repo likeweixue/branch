@@ -354,8 +354,13 @@ switch ($action) {
         if (isset($in['zi_bei']) && is_array($in['zi_bei'])) {
             $settings['zi_bei'] = array_values(array_filter(array_map('trim', $in['zi_bei']), fn($x) => $x !== ''));
         }
-        if (isset($in['layout']) && in_array($in['layout'], ['horizontal', 'vertical'], true)) {
-            $settings['layout'] = $in['layout'];
+        if (isset($in['layout']) && in_array($in['layout'], ['horizontal', 'vertical', 'custom'], true)) {
+            if ($in['layout'] === 'custom') {
+                $settings['layout_mode'] = 'custom';     // 位置以画布编辑器保存的为准
+            } else {
+                $settings['layout'] = $in['layout'];
+                $settings['layout_mode'] = 'auto';
+            }
         }
         if (isset($in['lines']) && is_array($in['lines'])) {
             foreach (['parent', 'marriage', 'self'] as $k) {
@@ -538,7 +543,8 @@ switch ($action) {
     /* ============ 家族历史：列表 / 保存 / 删除（管理员） ============ */
     case 'list_events':
         require_admin();
-        zp_json(['ok' => true, 'events' => zp_load_json(EVENTS_FILE, [])]);
+        // 与前台一致：最新的排在最上面
+        zp_json(['ok' => true, 'events' => zp_sort_by_date(zp_load_json(EVENTS_FILE, []), 'date', true)]);
         break;
 
     case 'save_event':
@@ -702,7 +708,14 @@ switch ($action) {
     /* ============ 土地：列表 / 保存 / 删除（管理员） ============ */
     case 'list_lands':
         require_admin();
-        zp_json(['ok' => true, 'lands' => zp_load_json(LANDS_FILE, [])]);
+        $lands = zp_load_json(LANDS_FILE, []);
+        foreach ($lands as &$ld) {
+            if (!empty($ld['history']) && is_array($ld['history'])) {
+                $ld['history'] = zp_sort_by_date($ld['history'], 'date', true);
+            }
+        }
+        unset($ld);
+        zp_json(['ok' => true, 'lands' => $lands]);
         break;
 
     case 'save_land':
@@ -729,6 +742,8 @@ switch ($action) {
             if ($date === '' && $event === '' && $note === '' && !$to) continue;
             $hist[] = ['id' => 'h' . (++$hi), 'date' => $date, 'event' => $event, 'to_ids' => $to, 'note' => $note];
         }
+        // 存的时候就按时间倒序（最近一次变更在最前），前台/后台读出来顺序一致
+        $hist = zp_sort_by_date($hist, 'date', true);
 
         $status = trim((string) ($in['status'] ?? '在册'));
         if (!in_array($status, zp_land_status(), true)) $status = '在册';
@@ -944,6 +959,26 @@ switch ($action) {
             $out[] = $row;
         }
         zp_save_json(MEMBERS_FILE, $out);
+
+        // 连线箭头 + 排列方式（编辑器与前台共用）
+        $settings = zp_load_json(SETTINGS_FILE, zp_default_settings());
+        if (isset($in['arrows']) && is_array($in['arrows'])) {
+            $clean = [];
+            foreach ($in['arrows'] as $k => $v) {
+                if (!is_string($k)) continue;
+                if (!preg_match('/^(parent|marriage):[\w\-|>]+$/', $k)) continue;
+                if (!in_array($v, ['to', 'back'], true)) continue;
+                $clean[$k] = $v;
+            }
+            $settings['edge_arrows'] = $clean ?: new stdClass();
+        }
+        if (isset($in['layout']) && in_array($in['layout'], ['horizontal', 'vertical'], true)) {
+            $settings['layout'] = $in['layout'];
+        }
+        if (isset($in['layout_mode']) && in_array($in['layout_mode'], ['auto', 'custom'], true)) {
+            $settings['layout_mode'] = $in['layout_mode'];
+        }
+        zp_save_json(SETTINGS_FILE, $settings);
         zp_json(['ok' => true]);
         break;
 

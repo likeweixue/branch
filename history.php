@@ -19,13 +19,9 @@ $isAdmin  = $cur && ($cur['role'] ?? '') === 'admin';
 $byId = [];
 foreach ($members as $m) { $byId[$m['id']] = $m; }
 
-// 按年代正序（无年份的排在最后）
-usort($events, function ($a, $b) {
-    $ya = preg_match('/(\d{4})/', (string) ($a['date'] ?? ''), $ma) ? (int) $ma[1] : PHP_INT_MAX;
-    $yb = preg_match('/(\d{4})/', (string) ($b['date'] ?? ''), $mb) ? (int) $mb[1] : PHP_INT_MAX;
-    if ($ya === $yb) return strcmp((string) ($a['title'] ?? ''), (string) ($b['title'] ?? ''));
-    return $ya <=> $yb;
-});
+// 按时间倒序：最新的一件在最上面；没写日期的（待考）沉在最后
+// 排序只看事件发生的时间，与「什么时候录入」无关
+$events = zp_sort_by_date($events, 'date', true);
 
 // 实际出现的分类
 $catsPresent = [];
@@ -41,9 +37,12 @@ foreach ($catsPresent as $c => $n) {
     if (!isset($catsOrdered[$c])) $catsOrdered[$c] = $n;
 }
 
-$years = array_filter(array_map(function ($e) {
-    return preg_match('/\d{4}/', (string) ($e['date'] ?? '')) ? (string) $e['date'] : '';
-}, $events));
+// 最早年份（只取四位年，别把时分秒塞进标题里）
+$yearList = [];
+foreach ($events as $e) {
+    if (preg_match('/(\d{4})/', (string) ($e['date'] ?? ''), $ym)) $yearList[] = (int) $ym[1];
+}
+$earliestYear = $yearList ? min($yearList) : 0;
 ?>
 <!doctype html>
 <html lang="zh-CN">
@@ -65,7 +64,7 @@ $years = array_filter(array_map(function ($e) {
     <p>把迁徙、婚嫁、求学、创业一件件记下来，家就有了来处。</p>
     <div class="pg-hero-meta">
       <span>共 <b><?= count($events) ?></b> 件大事</span>
-      <?php if ($years): ?><span>最早 <b><?= zp_h(min($years)) ?></b></span><?php endif; ?>
+      <?php if ($earliestYear): ?><span>最早 <b><?= $earliestYear ?></b> 年</span><?php endif; ?>
     </div>
     <?php if ($isAdmin): ?>
       <a class="zp-btn accent pg-hero-act" href="admin.php#history">＋ 记录一件大事</a>
@@ -81,7 +80,7 @@ $years = array_filter(array_map(function ($e) {
         <button class="pg-chip" data-cat="<?= zp_h($c) ?>"><?= zp_h($c) ?> <?= $n ?></button>
       <?php endforeach; ?>
     </div>
-    <button class="pg-sort" id="pgSort" data-dir="asc" title="切换时间顺序">时间：正序 ↑</button>
+    <button class="pg-sort" id="pgSort" data-dir="desc" title="切换时间顺序">时间：倒序 ↓</button>
   </div>
 
   <div class="tl" id="pgList">
@@ -89,9 +88,15 @@ $years = array_filter(array_map(function ($e) {
       $date = trim($e['date'] ?? '');
       $cat  = trim($e['category'] ?? '');
       $ids  = is_array($e['member_ids'] ?? null) ? $e['member_ids'] : [];
+      // 日期与时刻分两行排，日子长也不会被时间轴压住
+      $dPart = $date; $tPart = '';
+      if ($date !== '' && preg_match('/^(.*?)[\sT]*(\d{1,2}:\d{2}(?::\d{2})?)$/u', $date, $dm)) {
+          $dPart = rtrim($dm[1], ' ·');
+          $tPart = $dm[2];
+      }
     ?>
     <article class="tl-item" data-cat="<?= zp_h($cat) ?>">
-      <div class="tl-year"><?= $date !== '' ? zp_h($date) : '待考' ?></div>
+      <div class="tl-year"><?php if ($date === ''): ?>待考<?php else: ?><span class="tl-d"><?= zp_h($dPart) ?></span><?php if ($tPart !== ''): ?><span class="tl-time"><?= zp_h($tPart) ?></span><?php endif; ?><?php endif; ?></div>
       <div class="tl-rail"><span class="tl-dot"></span></div>
       <div class="tl-card">
         <div class="tl-head">

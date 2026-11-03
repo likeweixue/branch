@@ -55,5 +55,7 @@
             "color": "#7a5af8",
             "kind": ""
         }
-    ]
+    ],
+    "layout_mode": "auto",
+    "edge_arrows": []
 }

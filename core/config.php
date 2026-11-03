@@ -36,9 +36,57 @@ function zp_clean_url($u) {
     return '';
 }
 
+/**
+ * 把各种写法的日期解析成可排序整数（YYYYMMDDHHMMSS）
+ * 支持：2026-08-06 / 2026/8/6 / 2026.8.6 / 2026 年 8 月 6 日 /
+ *      2025 年 10 月06 日 16:00:00 / 2025-10-06 16:00 / 只有年份
+ * 解析不出来返回 null（排序时永远沉底）
+ */
+function zp_date_key($s) {
+    $s = trim((string) $s);
+    if ($s === '') return null;
+    $s = preg_replace('/[年月]/u', '-', $s);
+    $s = preg_replace('/[日号]/u', ' ', $s);
+    $s = preg_replace('/[时点]/u', ':', $s);
+    $s = preg_replace('/分/u', ':', $s);
+    $s = preg_replace('/秒/u', ' ', $s);
+    $s = preg_replace('/\s+/u', ' ', trim($s));
+    if (!preg_match('/^(\d{4})\s*(?:[-.\/]\s*(\d{1,2}))?\s*(?:[-.\/]\s*(\d{1,2}))?(?:\s*(\d{1,2})\s*:\s*(\d{1,2}))?(?:\s*:\s*(\d{1,2}))?/', $s, $m)) {
+        return null;
+    }
+    $y  = (int) $m[1];
+    $mo = (int) ($m[2] ?? 0);
+    $d  = (int) ($m[3] ?? 0);
+    $h  = (int) ($m[4] ?? 0);
+    $mi = (int) ($m[5] ?? 0);
+    $se = (int) ($m[6] ?? 0);
+    return $y * 10000000000 + $mo * 100000000 + $d * 1000000 + $h * 10000 + $mi * 100 + $se;
+}
+
+/**
+ * 按日期排序（默认倒序：最新的一条在最上面）
+ * 没有日期（或解析不出）的条目，无论正序倒序都排在最后。
+ */
+function zp_sort_by_date(array $rows, $field = 'date', $desc = true) {
+    usort($rows, function ($a, $b) use ($field, $desc) {
+        $ka = zp_date_key($a[$field] ?? '');
+        $kb = zp_date_key($b[$field] ?? '');
+        if ($ka === null && $kb === null) return 0;
+        if ($ka === null) return 1;
+        if ($kb === null) return -1;
+        return $desc ? ($kb <=> $ka) : ($ka <=> $kb);
+    });
+    return $rows;
+}
+
+/** 是否自定义布局（画布编辑器里手工摆过并保存） */
+function zp_layout_mode($settings) {
+    return (($settings['layout_mode'] ?? 'auto') === 'custom') ? 'custom' : 'auto';
+}
+
 /** 家族历史（大事记）可选分类 */
 function zp_event_categories() {
-    return ['迁徙', '婚嫁', '添丁', '求学', '事业', '家谱', '其他'];
+    return ['迁徙', '婚嫁', '添丁', '归去', '求学', '事业', '家谱', '其他'];
 }
 
 /** 土地状态 */
@@ -122,6 +170,8 @@ function zp_default_settings() {
     return [
         'zi_bei' => ['仁','德','朝','众','大','从','先','正','子','文','国','安','常','孟','学','永','远','照','光','明'],
         'layout' => 'horizontal', // horizontal 横排(左大字辈/右小字辈) | vertical 竖排(上大字辈/下小字辈)
+        'layout_mode' => 'auto',  // auto 按代数自动排列 | custom 用画布编辑器保存的手工位置
+        'edge_arrows' => [],      // 连线的箭头方向：{'parent:m3>m6': 'to'|'back'}，空 = 不画箭头
         'lines' => [
             'parent'  => '#cfd3d8', // 父子/母子（默认浅灰线，后台可改为纯白）
             'marriage'=> '#e5484d', // 两姓结姻（红线）

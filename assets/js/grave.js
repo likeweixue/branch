@@ -325,7 +325,7 @@
         var id = btn.getAttribute('data-locate');
         var g = graves.filter(function (x) { return x.id === id; })[0];
         if (!g || g.lat == null) return;
-        switchView('map');
+        openView('map');
         setTimeout(function () {
           ensureMap();
           map.setView(g.lat, g.lng, 15);
@@ -335,17 +335,38 @@
     });
   }
 
-  /* ---------- 全屏星空 ---------- */
+  /* ---------- 全屏：星空 / 地图两屏，都靠按钮唤起 ---------- */
   var exitBtn = document.getElementById('gvExit');
-  var full = false;
+  var exitMapBtn = document.getElementById('gvMapExit');
+  var mapView = document.getElementById('gvMapView');
+  var openTip = document.getElementById('gvOpenTip');
+  var current = '';               // '' | 'sky' | 'map'
 
-  function setFull(on) {
-    if (full === on) return;
-    full = on;
-    skyEl.classList.toggle('is-full', on);
-    document.body.classList.toggle('gv-locked', on);
-    if (exitBtn) exitBtn.hidden = !on;
-    if (!skyEl.hidden) {
+  function markTabs(v) {
+    document.querySelectorAll('#gvTabs button').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-view') === v);
+    });
+    if (openTip) openTip.hidden = !!v;
+  }
+
+  function openView(v) {
+    current = v;
+    markTabs(v);
+    if (v === 'map') {
+      skyEl.hidden = true;
+      skyEl.classList.remove('is-full');
+      mapView.hidden = false;
+      mapView.classList.add('is-full');
+      document.body.classList.add('gv-locked');
+      ensureMap();
+      setTimeout(function () { if (map) map.resize(); }, 40);
+    } else {
+      detailEl.hidden = true;
+      mapView.hidden = true;
+      mapView.classList.remove('is-full');
+      skyEl.hidden = false;
+      skyEl.classList.add('is-full');
+      document.body.classList.add('gv-locked');
       requestAnimationFrame(function () {
         layout();
         paint(window.performance ? performance.now() : 0);
@@ -353,44 +374,33 @@
     }
   }
 
-  if (exitBtn) exitBtn.addEventListener('click', function () { setFull(false); });
+  function closeView() {
+    current = '';
+    markTabs('');
+    skyEl.hidden = true;
+    mapView.hidden = true;
+    skyEl.classList.remove('is-full');
+    mapView.classList.remove('is-full');
+    document.body.classList.remove('gv-locked');
+    hover = null;
+    if (tipEl) tipEl.classList.remove('on');
+  }
+
+  if (exitBtn) exitBtn.addEventListener('click', closeView);
+  if (exitMapBtn) exitMapBtn.addEventListener('click', closeView);
   document.addEventListener('keydown', function (e) {
-    if ((e.key === 'Escape' || e.keyCode === 27) && full) {
-      setFull(false);
+    if ((e.key === 'Escape' || e.keyCode === 27) && current) {
+      closeView();
       e.preventDefault();
     }
   });
 
-  function switchView(v) {
-    var mp = document.getElementById('gvMapView');
-    document.querySelectorAll('#gvTabs button').forEach(function (b) {
-      b.classList.toggle('on', b.getAttribute('data-view') === v);
-    });
-    if (v === 'map') {
-      setFull(false);
-      detailEl.hidden = true;
-      skyEl.hidden = true;
-      mp.hidden = false;
-      ensureMap();
-      setTimeout(function () { if (map) map.resize(); }, 30);
-    } else {
-      mp.hidden = true;
-      skyEl.hidden = false;
-      layout();
-      paint(window.performance ? performance.now() : 0);
-    }
-  }
-
   document.getElementById('gvTabs').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b) return;
-    if (b.getAttribute('data-view') === 'sky') {
-      // 点「星空」= 铺满整个浏览器
-      switchView('sky');
-      setFull(true);
-    } else {
-      switchView('map');
-    }
+    var v = b.getAttribute('data-view');
+    if (v === current) { closeView(); return; }   // 再点一次收起
+    openView(v);
   });
 
   // 名册卡片点击 → 星空里点亮（并全屏）
@@ -400,8 +410,7 @@
       var id = card.getAttribute('data-grave');
       var s = stars.filter(function (x) { return x.g.id === id; })[0];
       if (!s) return;
-      switchView('sky');
-      setFull(true);
+      openView('sky');
       selected = s;
       showDetail(s.g);
       highlightCard(id, false);
@@ -412,7 +421,7 @@
   window.addEventListener('resize', function () {
     clearTimeout(rt);
     rt = setTimeout(function () {
-      if (!skyEl.hidden) layout();
+      if (current === 'sky') layout();
       else if (map) map.resize();
     }, 160);
   });
@@ -421,9 +430,8 @@
   paint(0);                        // 先同步画一帧，别等 rAF（后台标签页/无头截图会推迟回调）
   requestAnimationFrame(loop);
 
-  // 初始视图（?view=map 可直链）
-  var onBtn = document.querySelector('#gvTabs button.on');
-  if (onBtn && onBtn.getAttribute('data-view') === 'map') switchView('map');
+  // 初始视图（?view=map / ?view=sky 可直链，其余情况只留按钮）
+  if (D.initView === 'map' || D.initView === 'sky') openView(D.initView);
 
   // 深链：#gv=gv1
   var m = (location.hash || '').match(/gv=([\w\-]+)/);
@@ -431,7 +439,11 @@
     var g0 = graves.filter(function (x) { return x.id === m[1]; })[0];
     if (g0) {
       var s0 = stars.filter(function (x) { return x.g.id === g0.id; })[0];
-      if (s0) { selected = s0; showDetail(g0); }
+      if (s0) {
+        openView('sky');
+        selected = s0;
+        showDetail(g0);
+      }
     }
   }
 })();

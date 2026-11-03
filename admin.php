@@ -20,7 +20,7 @@ $members = zp_load_json(MEMBERS_FILE, []);
 $settings = zp_load_json(SETTINGS_FILE, zp_default_settings());
 $users_local = zp_load_json(USERS_FILE, []);
 $quotes_local = zp_load_json(QUOTES_FILE, []);
-$events_local = zp_load_json(EVENTS_FILE, []);
+$events_local = zp_sort_by_date(zp_load_json(EVENTS_FILE, []), 'date', true);
 $photos_local = zp_load_json(PHOTOS_FILE, []);
 $lands_local = zp_load_json(LANDS_FILE, []);
 $graves_local = zp_load_json(GRAVES_FILE, []);
@@ -265,9 +265,11 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
   <section class="ad-panel" id="tab-zb">
     <h2>字辈与排列</h2>
     <div class="ad-row"><label>字辈序列</label><textarea id="zb_list" placeholder="用空格或逗号分隔，如：仁 德 朝 众 大 ……"><?= htmlspecialchars(implode(' ', $settings['zi_bei'] ?? [])) ?></textarea></div>
-    <p class="ad-muted">左侧为长辈（大字辈），右侧为晚辈（小字辈）。如「仁德朝众大…永远照光明」，仁是最高辈、明是最低辈。</p>
+    <p class="ad-muted">左侧为长辈（大字辈），右侧为晚辈（小字辈）。如「仁德朝众大…永远照光明」，仁是最高辈、明是最低辈。<br>
+      选了「自定义」就到<a href="editor.php" style="color:var(--accent)">画布编辑器</a>里自己摆位置，摆好点「保存布局」，前台族谱会长得和编辑器里一样。</p>
     <div class="ad-row"><label>排列方向</label>
-      <select id="zb_layout"><option value="horizontal"<?= ($settings['layout']??'horizontal')==='horizontal'?' selected':'' ?>>横排（左大字辈 · 右小字辈）</option><option value="vertical"<?= ($settings['layout']??'')==='vertical'?' selected':'' ?>>竖排（上大字辈 · 下小字辈）</option></select>
+      <?php $lm = zp_layout_mode($settings); $ly = $lm === 'custom' ? 'custom' : ($settings['layout'] ?? 'horizontal'); ?>
+      <select id="zb_layout"><option value="horizontal"<?= $ly==='horizontal'?' selected':'' ?>>横排（左大字辈 · 右小字辈）</option><option value="vertical"<?= $ly==='vertical'?' selected':'' ?>>竖排（上大字辈 · 下小字辈）</option><option value="custom"<?= $ly==='custom'?' selected':'' ?>>自定义（用画布编辑器保存的位置）</option></select>
     </div>
     <h2 style="margin-top:22px">启动页</h2>
     <div class="ad-row"><label>启用启动页</label><input type="checkbox" id="su_enabled" <?= !empty($settings['startup']['enabled'])?'checked':'' ?>></div>
@@ -463,7 +465,7 @@ function zp_ava_html($m, $cls = 'ad-thumb') {
   <section class="ad-panel" id="tab-history">
     <h2>历史管理</h2>
     <div class="ad-row"><button class="zp-btn accent" id="adAddEvent">+ 记录一件大事</button>
-      <span class="ad-muted">迁徙、婚嫁、添丁、求学、事业……按年代排序展示在前台「历史」页。</span>
+      <span class="ad-muted">迁徙、婚嫁、添丁、求学、事业……前台「历史」页按事件时间倒序排列，最新的一件在最上面。</span>
       <a class="zp-btn ghost ad-top" href="history.php" style="text-decoration:none">查看前台 →</a></div>
     <div class="ad-form" id="adEventForm" style="display:none">
       <input type="hidden" id="ev_id">

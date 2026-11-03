@@ -121,6 +121,8 @@
 :is(.gv-tabs,.pl-tabs) button.on { background: var(--ink); color: #fff; }
 .gv-legend { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;
   font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.gv-bar-tip { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); }
+.gv-open-tip { margin: 4px 0 0; font-size: 13px; color: var(--muted); line-height: 1.9; }
 .gv-lg-title { color: var(--ink-soft); margin-right: 4px; }
 .gv-dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; display: inline-block;
   box-shadow: 0 0 calc(6px * var(--s)) calc(2px * var(--s)) rgba(255,255,255,calc(var(--s) * .9)); }
@@ -134,8 +136,7 @@
 /* 全屏：点「星空」后铺满整个浏览器 */
 .gv-sky.is-full { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh;
   border-radius: 0; z-index: 900; box-shadow: none; }
-body.gv-locked { overflow: hidden; }
-.gv-sky.is-full .gv-sky-hud { left: 34px; top: 26px; }
+body.gv-locked { overflow: hidden; }.gv-sky.is-full .gv-sky-hud { left: 34px; top: 26px; }
 .gv-sky.is-full .gv-sky-en { font-size: 11px; letter-spacing: .34em; }
 .gv-sky.is-full .gv-sky-tip { margin-top: 10px; font-size: 13.5px; }
 .gv-sky.is-full .gv-sky-lg { display: flex; font-size: 11.5px; margin-top: 18px; }
@@ -176,11 +177,12 @@ body.gv-locked { overflow: hidden; }
 .gv-tip span { color: rgba(233,237,245,.66); }
 .gv-tip em { font-style: normal; color: #ffb066; }
 
-/* 选中详情 */
-.gv-detail { position: absolute; right: 16px; bottom: 16px; z-index: 9; width: min(320px, calc(100% - 32px));
+/* 选中详情：星空与地图两屏共用，固定在右下角 */
+.gv-detail { position: fixed; right: 24px; bottom: 24px; z-index: 960; width: min(340px, calc(100% - 48px));
   background: rgba(12,16,26,.94); border: 1px solid rgba(255,255,255,.14); border-radius: 14px;
   padding: 16px 16px 14px; color: #e9edf5; box-shadow: 0 20px 50px rgba(0,0,0,.5);
-  backdrop-filter: blur(8px); max-height: calc(100% - 32px); overflow-y: auto; }
+  backdrop-filter: blur(8px); max-height: calc(100vh - 120px); overflow-y: auto; }
+.gv-detail[hidden] { display: none; }
 .gv-detail h3 { margin: 0 0 4px; font-family: var(--din); font-size: 17px; letter-spacing: .05em; }
 .gv-detail .d-who { font-size: 12px; color: rgba(233,237,245,.62); margin-bottom: 10px; }
 .gv-detail .d-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px;
@@ -193,8 +195,26 @@ body.gv-locked { overflow: hidden; }
   font-size: 14px; }
 .gv-detail .d-x:hover { color: #fff; }
 
-/* 地图视图 */
+/* 地图视图：与星空一样，点按钮后铺满整屏 */
 .gv-mapview { margin-top: 4px; }
+.gv-mapview.is-full { position: fixed; inset: 0; z-index: 900; margin: 0;
+  background: #05070c; }
+.gv-mapview.is-full .gv-map { height: 100vh; height: 100dvh; border-radius: 0; }
+.gv-mapview.is-full .gv-map-foot {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 11; margin: 0;
+  padding: 26px 22px 14px; color: rgba(255,255,255,.62);
+  background: linear-gradient(to top, rgba(5,7,12,.82), rgba(5,7,12,0));
+  pointer-events: none;
+}
+.gv-mapview.is-full .gv-map-foot .pl-tiles { pointer-events: auto; }
+.gv-mapview.is-full .pl-tiles button {
+  border-color: rgba(255,255,255,.22); color: rgba(255,255,255,.66);
+  background: rgba(255,255,255,.06); backdrop-filter: blur(6px);
+}
+.gv-mapview.is-full .pl-tiles button.on {
+  border-color: rgba(255,255,255,.72); color: #fff; background: rgba(255,255,255,.18);
+}
+.gv-exit-map { position: fixed; right: 18px; top: 16px; z-index: 12; }
 .gv-map { height: min(64vh, 560px); border-radius: 16px; overflow: hidden; }
 .gv-map-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px;
   font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); flex-wrap: wrap; gap: 8px; }

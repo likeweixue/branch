@@ -12,14 +12,11 @@ require_once __DIR__ . '/storage.php';
 /** 默认家族成员（与仓库内 data/members.json 保持一致） */
 function zp_seed_members() {
     return [
-        // 第一代：父系祖父母
-        ['id'=>'m1','name'=>'麻家爷爷','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'父系祖父，姓名待补充。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m2'],'order'=>1],
-        ['id'=>'m2','name'=>'麻家奶奶','zi_bei'=>'','gender'=>'female','birth'=>'','avatar'=>'','death'=>null,'bio'=>'父系祖母，姓名待补充。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m1'],'order'=>1],
-        // 第一代：母系外祖父母
+        // 第一代：母系外祖父母（父系麻家从母亲这一辈起才并入谱，祖辈不单列）
         ['id'=>'m3','name'=>'刘祖德','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'外公。刘小雨与大姨妈、三姨妈、五姨妈之父。','father_id'=>'m28','mother_id'=>null,'spouse_ids'=>['m4'],'order'=>1],
         ['id'=>'m4','name'=>'刘家外婆','zi_bei'=>'','gender'=>'female','birth'=>'','avatar'=>'','death'=>null,'bio'=>'外婆，姓名待补。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m3'],'order'=>1],
         // 第二代：父母
-        ['id'=>'m5','name'=>'麻林彪','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'父亲。','father_id'=>'m1','mother_id'=>'m2','spouse_ids'=>['m6'],'order'=>1],
+        ['id'=>'m5','name'=>'麻林彪','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'父亲。母系一支从母亲这一辈起入谱，父系祖辈不再单列。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m6'],'order'=>1],
         ['id'=>'m6','name'=>'刘小雨','zi_bei'=>'','gender'=>'female','birth'=>'','avatar'=>'','death'=>null,'bio'=>'母亲，刘家次女。','father_id'=>'m3','mother_id'=>'m4','spouse_ids'=>['m5'],'order'=>2],
         // 第二代：母亲的姐妹（姨妈）及其配偶
         ['id'=>'m7','name'=>'大姨妈','zi_bei'=>'','gender'=>'female','birth'=>'','avatar'=>'','death'=>null,'bio'=>'母亲的大姐。','father_id'=>'m3','mother_id'=>'m4','spouse_ids'=>['m8'],'order'=>1],
@@ -54,7 +51,7 @@ function zp_seed_members() {
 function zp_seed_quotes() {
     $now = date('Y-m-d H:i:s');
     return [
-        ['id'=>'q1','member_id'=>'m1','speaker'=>'','relation'=>'祖父','text'=>'家和万事兴，勤俭能持家。做人先立品，做事要有始有终。','context'=>'示例 · 年节家宴上的嘱托','year'=>'','created'=>$now],
+        ['id'=>'q1','member_id'=>null,'speaker'=>'祖父','relation'=>'祖父','text'=>'家和万事兴，勤俭能持家。做人先立品，做事要有始有终。','context'=>'示例 · 年节家宴上的嘱托','year'=>'','created'=>$now],
         ['id'=>'q2','member_id'=>'m3','speaker'=>'','relation'=>'外祖父','text'=>'读书明理，行路识人。吃一点亏不算坏事，心要放宽。','context'=>'示例 · 待替换为真实语录','year'=>'','created'=>$now],
         ['id'=>'q3','member_id'=>'m5','speaker'=>'','relation'=>'父亲','text'=>'自己的路自己走，但家里永远给你留着门。','context'=>'示例 · 待替换为真实语录','year'=>'','created'=>$now],
     ];

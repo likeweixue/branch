@@ -34,7 +34,9 @@ foreach ($lands as $l) {
         if (isset($byId[$mid])) $owners[] = $byId[$mid]['name'];
     }
     $hist = [];
-    foreach ((array) ($l['history'] ?? []) as $h) {
+    // 流转史按时间倒序：最近一次变更在最上面
+    $rawHist = zp_sort_by_date(array_values((array) ($l['history'] ?? [])), 'date', true);
+    foreach ($rawHist as $h) {
         $to = [];
         foreach ((array) ($h['to_ids'] ?? []) as $mid) {
             if (isset($byId[$mid])) $to[] = $byId[$mid]['name'];

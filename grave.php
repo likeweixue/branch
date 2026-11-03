@@ -143,6 +143,8 @@ $zp_grave = [
     'me'       => $me,
     'hasUser'  => !empty($cur),
     'isAdmin'  => $isAdmin,
+    // ?view=map / ?view=sky 深链：进来直接把那一屏铺满
+    'initView' => in_array(($_GET['view'] ?? ''), ['sky', 'map'], true) ? $_GET['view'] : '',
     'stat'     => ['total' => count($graves), 'geo' => $withGeo, 'earliest' => $earliest],
 ];
 ?>
@@ -183,12 +185,12 @@ $zp_grave = [
     </div>
   <?php else: ?>
 
-  <?php $initView = (($_GET['view'] ?? '') === 'map') ? 'map' : 'sky'; ?>
-  <div class="gv-bar">
+  <?php $initView = in_array(($_GET['view'] ?? ''), ['sky', 'map'], true) ? $_GET['view'] : ''; ?>  <div class="gv-bar">
     <div class="gv-tabs" id="gvTabs">
-      <button data-view="sky" class="<?= $initView === 'sky' ? 'on' : '' ?>">星空</button>
-      <button data-view="map" class="<?= $initView === 'map' ? 'on' : '' ?>">地图</button>
+      <button type="button" data-view="sky">星空</button>
+      <button type="button" data-view="map">地图</button>
     </div>
+    <span class="gv-bar-tip">点一下铺满整屏，按 ESC 退出</span>
     <div class="gv-legend">
       <span class="gv-lg-title">亮度 = 与你的距离</span>
       <i class="gv-dot" style="--s:1"></i><span>父母 / 子女</span>
@@ -198,10 +200,10 @@ $zp_grave = [
     </div>
   </div>
 
-  <!-- 星空 -->
-  <section class="gv-sky" id="gvSky"<?= $initView === 'map' ? ' hidden' : '' ?>>
+  <!-- 星空（点按钮才铺满全屏显示） -->
+  <section class="gv-sky" id="gvSky" hidden>
     <canvas id="gvCanvas"></canvas>
-    <button class="gv-exit" id="gvExit" type="button" hidden>✕ 退出星空 <kbd>ESC</kbd></button>
+    <button class="gv-exit" id="gvExit" type="button">✕ 退出星空 <kbd>ESC</kbd></button>
     <div class="gv-sky-hud">
       <div class="gv-sky-en">MEMORIA · <?= count($graves) ?> STARS</div>
       <div class="gv-sky-tip" id="gvSkyTip">把鼠标移到星上，看看是哪一位</div>
@@ -214,12 +216,12 @@ $zp_grave = [
       </div>
     </div>
     <div class="gv-tip" id="gvTip"></div>
-    <div class="gv-detail" id="gvDetail" hidden></div>
   </section>
 
-  <!-- 地图 -->
-  <section class="gv-mapview" id="gvMapView"<?= $initView === 'map' ? '' : ' hidden' ?>>
+  <!-- 地图（点按钮才铺满全屏显示） -->
+  <section class="gv-mapview" id="gvMapView" hidden>
     <div class="gv-map" id="gvMap"></div>
+    <button class="gv-exit gv-exit-map" id="gvMapExit" type="button">✕ 退出地图 <kbd>ESC</kbd></button>
     <div class="gv-map-foot">
       <span><?= $withGeo ? $withGeo . ' 座坟标了坐标' : '还没有坟标了坐标' ?></span>
       <div class="pl-tiles" id="gvTiles">
@@ -229,6 +231,8 @@ $zp_grave = [
       </div>
     </div>
   </section>
+
+  <p class="gv-open-tip" id="gvOpenTip"<?= $initView !== '' ? ' hidden' : '' ?>>想看天上的星，还是想看清坟在山里的哪一处？点上面的按钮。</p>
 
   <!-- 名册 -->
   <section class="gv-list" id="gvList">
@@ -270,6 +274,9 @@ $zp_grave = [
   </section>
   <?php endif; ?>
 </main>
+
+<!-- 详情卡：星空与地图共用，浮在两屏之上 -->
+<div class="gv-detail" id="gvDetail" hidden></div>
 
 <div class="zp-toast" id="zpToast"></div>
 
