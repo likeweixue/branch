@@ -183,10 +183,11 @@ $zp_grave = [
     </div>
   <?php else: ?>
 
+  <?php $initView = (($_GET['view'] ?? '') === 'map') ? 'map' : 'sky'; ?>
   <div class="gv-bar">
     <div class="gv-tabs" id="gvTabs">
-      <button data-view="sky" class="on">星空</button>
-      <button data-view="map">地图</button>
+      <button data-view="sky" class="<?= $initView === 'sky' ? 'on' : '' ?>">星空</button>
+      <button data-view="map" class="<?= $initView === 'map' ? 'on' : '' ?>">地图</button>
     </div>
     <div class="gv-legend">
       <span class="gv-lg-title">亮度 = 与你的距离</span>
@@ -198,25 +199,33 @@ $zp_grave = [
   </div>
 
   <!-- 星空 -->
-  <section class="gv-sky" id="gvSky">
+  <section class="gv-sky" id="gvSky"<?= $initView === 'map' ? ' hidden' : '' ?>>
     <canvas id="gvCanvas"></canvas>
+    <button class="gv-exit" id="gvExit" type="button" hidden>✕ 退出星空 <kbd>ESC</kbd></button>
     <div class="gv-sky-hud">
       <div class="gv-sky-en">MEMORIA · <?= count($graves) ?> STARS</div>
       <div class="gv-sky-tip" id="gvSkyTip">把鼠标移到星上，看看是哪一位</div>
+      <div class="gv-sky-lg">
+        <span>亮度 = 与你的距离</span>
+        <i class="gv-dot" style="--s:1"></i>父母 / 子女
+        <i class="gv-dot" style="--s:.62"></i>祖辈 · 兄弟
+        <i class="gv-dot" style="--s:.4"></i>旁系
+        <i class="gv-dot" style="--s:.22"></i>无血缘
+      </div>
     </div>
     <div class="gv-tip" id="gvTip"></div>
     <div class="gv-detail" id="gvDetail" hidden></div>
   </section>
 
   <!-- 地图 -->
-  <section class="gv-mapview" id="gvMapView" hidden>
+  <section class="gv-mapview" id="gvMapView"<?= $initView === 'map' ? '' : ' hidden' ?>>
     <div class="gv-map" id="gvMap"></div>
     <div class="gv-map-foot">
       <span><?= $withGeo ? $withGeo . ' 座坟标了坐标' : '还没有坟标了坐标' ?></span>
       <div class="pl-tiles" id="gvTiles">
-        <button data-tile="osm" class="on">标准</button>
-        <button data-tile="gaode">高德</button>
-        <button data-tile="none">无底图</button>
+        <button data-tile="atlas" class="on" title="离线底图，不联网也能用">典藏</button>
+        <button data-tile="gaode" title="在线瓦片，国内较快；坐标为 GCJ-02，与标点可能有偏移">高德</button>
+        <button data-tile="none" title="坐标纸">坐标纸</button>
       </div>
     </div>
   </section>

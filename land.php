@@ -99,7 +99,18 @@ $zp_land = ['lands' => $js, 'isAdmin' => $isAdmin];
       <?php if ($isAdmin): ?><a class="zp-btn accent" href="admin.php#land">去录入第一块地</a><?php endif; ?>
     </div>
   <?php else: ?>
-  <div class="pl-grid">
+  <?php $initView = (($_GET['view'] ?? '') === 'map') ? 'map' : 'list'; ?>
+  <div class="pl-bar">
+    <div class="pl-tabs" id="plTabs">
+      <button type="button" data-view="list" class="<?= $initView === 'list' ? 'on' : '' ?>">地块</button>
+      <button type="button" data-view="map" class="<?= $initView === 'map' ? 'on' : '' ?>">地图</button>
+    </div>
+    <span class="pl-bar-note">
+      <?php if ($withCoord): ?><b><?= $withCoord ?></b> / <?= count($lands) ?> 块已标点<?php else: ?>还没有地块标了坐标<?php endif; ?>
+    </span>
+  </div>
+
+  <div class="pl-grid" id="plGrid" data-view="<?= $initView ?>">
     <section class="pl-list" id="plList">
       <?php foreach ($js as $i => $l): ?>
         <article class="pl-card" id="land-<?= zp_h($l['id']) ?>" data-land="<?= zp_h($l['id']) ?>">
@@ -157,12 +168,13 @@ $zp_land = ['lands' => $js, 'isAdmin' => $isAdmin];
 
     <aside class="pl-side">
       <div class="pl-map" id="plMap"></div>
+      <div class="pl-pop" id="plPop" hidden></div>
       <div class="pl-map-foot">
         <span id="plMapStat"><?= $withCoord ? $withCoord . ' 块地已标点' : '暂无地块标了坐标' ?></span>
         <div class="pl-tiles" id="plTiles">
-          <button data-tile="osm" class="on">标准</button>
-          <button data-tile="gaode">高德</button>
-          <button data-tile="none">无底图</button>
+          <button data-tile="atlas" class="on" title="离线底图，不联网也能用">典藏</button>
+          <button data-tile="gaode" title="在线瓦片，国内较快；坐标为 GCJ-02，与标点可能有偏移">高德</button>
+          <button data-tile="none" title="坐标纸">坐标纸</button>
         </div>
       </div>
       <?php if (!$withCoord && $isAdmin): ?>

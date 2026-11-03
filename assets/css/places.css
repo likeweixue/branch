@@ -6,7 +6,22 @@
 
 /* ---------------- 土地 ---------------- */
 .pl-wrap { max-width: 1200px; }
-.pl-grid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 22px; align-items: start; margin-top: 22px; }
+
+/* 视图切换：默认只看地块，点「地图」才铺开地图 */
+.pl-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 22px 0 16px; }
+.pl-bar-note { margin-left: auto; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); }
+.pl-bar-note b { color: var(--ink); font-weight: 600; }
+
+.pl-grid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 22px; align-items: start; }
+.pl-grid[data-view="list"] { grid-template-columns: minmax(0, 1fr); }
+.pl-grid[data-view="list"] .pl-side { display: none; }
+.pl-grid[data-view="list"] .pl-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px; align-items: start; }
+.pl-grid[data-view="map"] { grid-template-columns: minmax(0, 1fr); }
+.pl-grid[data-view="map"] .pl-list { display: none; }
+.pl-grid[data-view="map"] .pl-side { position: relative; top: auto; display: block; }
+.pl-grid[data-view="map"] .pl-map { height: min(74vh, 660px); }
 
 .pl-list { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
@@ -51,13 +66,32 @@
 .pl-h-to { color: var(--accent); font-size: 12px; margin-left: 8px; }
 .pl-h-body p { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.75; }
 
-/* 右侧地图 */
+/* 地图视图 */
 .pl-side { position: sticky; top: 74px; }
-.pl-map { height: calc(100vh - 190px); min-height: 360px; background: var(--bg-2); }
+.pl-map { height: calc(100vh - 190px); min-height: 360px; background: var(--bg-2); position: relative; }
 .pl-map-none { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 8px; text-align: center; padding: 24px; background: var(--bg-2); z-index: 6; }
+  justify-content: center; gap: 8px; text-align: center; padding: 24px; background: var(--bg-2); z-index: 8; }
 .pl-map-none b { font-family: var(--din); font-size: 15px; }
 .pl-map-none span { font-size: 12px; color: var(--muted); line-height: 1.7; max-width: 240px; }
+
+/* 点标注后弹出的地块卡 */
+.pl-pop { position: absolute; left: 16px; bottom: 16px; z-index: 9; width: min(320px, calc(100% - 32px));
+  background: var(--card); border: 1px solid var(--card-line); border-radius: 13px; padding: 15px 16px 14px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.16); }
+.pl-pop-x { position: absolute; right: 9px; top: 8px; background: none; border: 0; color: var(--muted);
+  font-size: 13px; line-height: 1; padding: 4px; }
+.pl-pop-x:hover { color: var(--ink); }
+.pl-pop h4 { margin: 0 0 6px; font-family: var(--din); font-size: 16px; letter-spacing: .04em; padding-right: 18px; }
+.pl-pop-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-family: var(--mono); font-size: 11px;
+  color: var(--muted); }
+.pl-pop-meta b { color: var(--ink); font-weight: 600; }
+.pl-pop-last { margin: 10px 0 0; padding-top: 9px; border-top: 1px dashed var(--hair-soft);
+  font-size: 12px; line-height: 1.7; color: var(--ink-soft); }
+.pl-pop-last em { font-style: normal; color: var(--accent); }
+.pl-pop-go { margin-top: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+  padding: 4px 10px; border-radius: 20px; border: 1px solid var(--hair); background: transparent;
+  color: var(--accent); }
+.pl-pop-go:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .pl-map-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px;
   font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); flex-wrap: wrap; }
 .pl-tiles { display: flex; gap: 4px; }
@@ -67,9 +101,10 @@
 .pl-tip { font-size: 11.5px; color: var(--muted); line-height: 1.7; margin: 10px 0 0; }
 
 @media (max-width: 980px) {
-  .pl-grid { grid-template-columns: 1fr; }
-  .pl-side { position: static; order: -1; }
-  .pl-map { height: 340px; }
+  .pl-grid, .pl-grid[data-view="map"] { grid-template-columns: 1fr; }
+  .pl-grid[data-view="list"] .pl-list { grid-template-columns: 1fr; }
+  .pl-side { position: relative; top: auto; }
+  .pl-grid[data-view="map"] .pl-map { height: min(62vh, 460px); }
 }
 
 /* ---------------- 坟茔 ---------------- */
@@ -80,10 +115,10 @@
 .gv-blank { margin-top: 28px; }
 
 .gv-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 20px 0 14px; }
-.gv-tabs { display: flex; gap: 4px; background: var(--bg-2); border-radius: 22px; padding: 3px; }
-.gv-tabs button { font-family: var(--din); font-size: 13px; letter-spacing: .1em; padding: 6px 18px;
+:is(.gv-tabs,.pl-tabs) { display: flex; gap: 4px; background: var(--bg-2); border-radius: 22px; padding: 3px; }
+:is(.gv-tabs,.pl-tabs) button { font-family: var(--din); font-size: 13px; letter-spacing: .1em; padding: 6px 18px;
   border: 0; border-radius: 20px; background: transparent; color: var(--muted); transition: all .18s; }
-.gv-tabs button.on { background: var(--ink); color: #fff; }
+:is(.gv-tabs,.pl-tabs) button.on { background: var(--ink); color: #fff; }
 .gv-legend { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;
   font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--muted); }
 .gv-lg-title { color: var(--ink-soft); margin-right: 4px; }
@@ -95,10 +130,41 @@
 .gv-sky { position: relative; height: min(72vh, 620px); border-radius: 16px; overflow: hidden;
   background: radial-gradient(120% 110% at 70% 8%, #141a2c 0%, #0a0d16 46%, #05070c 100%);
   box-shadow: 0 18px 50px rgba(0,0,0,.28); }
+
+/* 全屏：点「星空」后铺满整个浏览器 */
+.gv-sky.is-full { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh;
+  border-radius: 0; z-index: 900; box-shadow: none; }
+body.gv-locked { overflow: hidden; }
+.gv-sky.is-full .gv-sky-hud { left: 34px; top: 26px; }
+.gv-sky.is-full .gv-sky-en { font-size: 11px; letter-spacing: .34em; }
+.gv-sky.is-full .gv-sky-tip { margin-top: 10px; font-size: 13.5px; }
+.gv-sky.is-full .gv-sky-lg { display: flex; font-size: 11.5px; margin-top: 18px; }
+.gv-sky.is-full .gv-sky-lg .gv-dot { width: 9px; height: 9px; }
+.gv-sky.is-full .gv-detail { right: 24px; bottom: 24px; width: min(360px, calc(100% - 48px));
+  max-height: calc(100% - 48px); }
+
+.gv-exit { position: absolute; right: 18px; top: 16px; z-index: 12; display: inline-flex;
+  align-items: center; gap: 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+  color: rgba(255,255,255,.82); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18);
+  border-radius: 22px; padding: 7px 14px 7px 12px; cursor: pointer;
+  backdrop-filter: blur(8px); transition: background .16s, color .16s; }
+.gv-exit:hover { background: rgba(255,255,255,.17); color: #fff; }
+.gv-exit kbd { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; padding: 1px 5px;
+  border-radius: 4px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.14); }
+.gv-exit[hidden] { display: none; }
+
 #gvCanvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
 .gv-sky-hud { position: absolute; left: 22px; top: 18px; pointer-events: none; }
 .gv-sky-en { font-family: var(--mono); font-size: 10px; letter-spacing: .3em; color: rgba(255,255,255,.42); }
 .gv-sky-tip { font-family: var(--zh); font-size: 12.5px; color: rgba(255,255,255,.62); margin-top: 8px; letter-spacing: .04em; }
+
+/* 全屏时图例跟着搬进星空，否则被盖住看不见 */
+.gv-sky-lg { display: none; margin-top: 16px; align-items: center; gap: 7px; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: rgba(255,255,255,.5); }
+.gv-sky.is-full .gv-sky-lg { display: flex; }
+.gv-sky-lg span { color: rgba(255,255,255,.72); margin-right: 4px; }
+.gv-sky-lg .gv-dot { background: #fff;
+  box-shadow: 0 0 calc(6px * var(--s)) calc(1px * var(--s)) rgba(255,255,255,calc(var(--s) * .85)); }
 
 .gv-tip { position: absolute; z-index: 8; pointer-events: none; opacity: 0; transform: translateY(4px);
   transition: opacity .14s, transform .14s; max-width: 260px;

@@ -1,21 +1,47 @@
 /* ============================================================================
- * ZMap —— 零依赖的极简瓦片地图
- * 用于「土地」「坟茔」两个页面：拖拽平移、滚轮缩放、标注点、悬停提示。
+ * ZMap —— 零依赖的极简地图（拖拽平移 / 滚轮缩放 / 标注 / 悬停）
  *
- *   var map = new ZMap(el, { center: [lat, lng], zoom: 13, tile: 'osm' });
+ *   var map = new ZMap(el, { center: [lat, lng], zoom: 13, base: 'atlas', theme: 'light' });
  *   map.setMarkers([{ id, lat, lng, html, cls, title }]);
- *   map.on('markerclick', fn);   map.on('ready', fn);
+ *   map.on('markerclick', fn);
  *
- * 底图：osm（WGS-84 标准） / gaode（GCJ-02，中国境内更清晰，坐标可能偏移） / none
- * 断网或瓦片全挂时自动降级为「坐标纸」网格，标注点照常显示。
+ * 底图有三种：
+ *   atlas  离线「典藏」底图 —— 本地 Canvas 绘制经纬网、比例尺、指北针。
+ *          不联网、不依赖任何瓦片服务，所以永远不会 404，离线也能用。
+ *   gaode  高德在线瓦片（国内最快，但 GCJ-02 坐标与 WGS-84 标点有偏移）
+ *   none   坐标纸
+ *
+ * 在线瓦片连续失败会自动退回 atlas，不会留一片空白。
  * ========================================================================== */
 window.ZMap = (function () {
   'use strict';
 
   var TILE = 256;
-  var TILES = {
-    osm:   { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', sub: ['a', 'b', 'c'], max: 19 },
-    gaode: { url: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', sub: ['1', '2', '3', '4'], max: 18 }
+
+  var BASES = {
+    gaode: {
+      url: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+      sub: ['1', '2', '3', '4'],
+      max: 18
+    }
+  };
+
+  /* 两套离线底图配色：浅色「宣纸」/ 深色「星夜」 */
+  var THEMES = {
+    light: {
+      bg: '#f8f4ea', bg2: '#efe8d9',
+      grid: 'rgba(124,112,94,.20)', grid5: 'rgba(124,112,94,.40)',
+      text: 'rgba(110,99,82,.82)', ring: 'rgba(124,112,94,.30)',
+      ink: 'rgba(80,70,55,.92)',
+      blob: '168,148,110', blobA: 0.085
+    },
+    dark: {
+      bg: '#0d1320', bg2: '#070a11',
+      grid: 'rgba(150,180,255,.13)', grid5: 'rgba(150,180,255,.28)',
+      text: 'rgba(160,190,240,.7)', ring: 'rgba(150,180,255,.22)',
+      ink: 'rgba(200,220,255,.9)',
+      blob: '56,104,196', blobA: 0.15
+    }
   };
 
   function lon2x(lon, z) { return (lon + 180) / 360 * Math.pow(2, z); }
@@ -29,10 +55,36 @@ window.ZMap = (function () {
     return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
   }
 
+  /** 二维整数哈希，用来给地形晕染「固定」位置 */
+  function hash2(a, b) {
+    var h = (a * 374761393 + b * 668265263) | 0;
+    h = ((h ^ (h >>> 13)) * 1274126177) | 0;
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+
+  /** 把任意正数收成最接近的 1 / 2 / 5 × 10^n */
+  function niceNum(v) {
+    if (!(v > 0)) return 1;
+    var e = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+    var f = v / e;
+    var n = f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10;
+    return n * e;
+  }
+
+  /** 度数保留几位小数 */
+  function degDec(step) {
+    if (step >= 1) return 0;
+    if (step >= 0.1) return 1;
+    if (step >= 0.01) return 2;
+    if (step >= 0.001) return 3;
+    return 4;
+  }
+
   function ZMap(el, opt) {
     opt = opt || {};
     this.el = el;
-    this.tileKind = opt.tile || 'osm';
+    this.base = opt.base || opt.tile || 'atlas';
+    this.theme = opt.theme || 'light';
     this.minZoom = opt.minZoom || 3;
     this.maxZoom = opt.maxZoom || 18;
     this.markers = [];
@@ -40,23 +92,34 @@ window.ZMap = (function () {
     this.ready = false;
     this.tileFail = 0;
     this.tileOk = 0;
+    this._fellBack = false;
 
     el.classList.add('zmap');
+    el.setAttribute('data-theme', this.theme);
     el.innerHTML = '';
+
     this.gridLayer = document.createElement('div');
     this.gridLayer.className = 'zm-grid';
+
+    this.baseCanvas = document.createElement('canvas');
+    this.baseCanvas.className = 'zm-base';
+    this.baseCtx = this.baseCanvas.getContext('2d');
+
     this.tileLayer = document.createElement('div');
     this.tileLayer.className = 'zm-tiles';
+
     this.markLayer = document.createElement('div');
     this.markLayer.className = 'zm-marks';
+
     this.hint = document.createElement('div');
     this.hint.className = 'zm-hint';
+
     el.appendChild(this.gridLayer);
+    el.appendChild(this.baseCanvas);
     el.appendChild(this.tileLayer);
     el.appendChild(this.markLayer);
     el.appendChild(this.hint);
 
-    // 缩放 / 归位控件
     if (opt.controls !== false) {
       var self0 = this;
       var ctrl = document.createElement('div');
@@ -94,7 +157,7 @@ window.ZMap = (function () {
     var self = this, drag = null;
 
     this.el.addEventListener('mousedown', function (e) {
-      if (e.target.closest('.zm-mark')) return;
+      if (e.target.closest('.zm-mark, .zm-ctrl')) return;
       drag = { x: e.clientX, y: e.clientY, cx: self.cx, cy: self.cy };
       self.el.classList.add('grabbing');
       e.preventDefault();
@@ -117,19 +180,17 @@ window.ZMap = (function () {
       self.zoomAt(self.z + (e.deltaY < 0 ? 1 : -1), e.clientX - r.left, e.clientY - r.top);
     }, { passive: false });
 
-    // 双击放大
     this.el.addEventListener('dblclick', function (e) {
       var r = self.el.getBoundingClientRect();
       self.zoomAt(self.z + 1, e.clientX - r.left, e.clientY - r.top);
     });
 
-    // 触摸：单指平移、双指缩放
     var tstart = null;
     this.el.addEventListener('touchstart', function (e) {
       if (e.touches.length === 1) {
         tstart = { x: e.touches[0].clientX, y: e.touches[0].clientY, cx: self.cx, cy: self.cy };
       } else if (e.touches.length === 2) {
-        tstart = { d: self._dist(e.touches), z: self.z, mx: 0, my: 0 };
+        tstart = { d: self._dist(e.touches), z: self.z };
       }
     }, { passive: true });
     this.el.addEventListener('touchmove', function (e) {
@@ -165,7 +226,6 @@ window.ZMap = (function () {
     this.render();
   };
 
-  /** 以容器内某点为锚点缩放（保持该点地理坐标不动） */
   ZMap.prototype.zoomAt = function (nz, mx, my) {
     nz = Math.max(this.minZoom, Math.min(this.maxZoom, nz));
     if (nz === this.z) return;
@@ -178,7 +238,6 @@ window.ZMap = (function () {
     this.render();
   };
 
-  /** 平移到某点（经纬度） */
   ZMap.prototype.setView = function (lat, lng, z) {
     if (z != null) this.z = Math.max(this.minZoom, Math.min(this.maxZoom, z));
     this.cx = lon2x(lng, this.z) * TILE;
@@ -188,7 +247,7 @@ window.ZMap = (function () {
 
   ZMap.prototype.center = function () {
     var w = this.w || this.el.clientWidth, h = this.h || this.el.clientHeight;
-    return { lat: y2lat((this.cy) / TILE, this.z), lng: x2lon((this.cx) / TILE, this.z), zoom: this.z, w: w, h: h };
+    return { lat: y2lat(this.cy / TILE, this.z), lng: x2lon(this.cx / TILE, this.z), zoom: this.z, w: w, h: h };
   };
 
   /** 让所有标注点进入视野 */
@@ -196,8 +255,8 @@ window.ZMap = (function () {
     var pts = this.markers.filter(function (m) { return m.lat != null && m.lng != null; });
     if (!pts.length) return;
     var w = this.w || this.el.clientWidth, h = this.h || this.el.clientHeight;
-    pad = pad || 60;
-    var best = this.z;
+    pad = pad || 64;
+    var best = this.minZoom;
     for (var z = this.maxZoom; z >= this.minZoom; z--) {
       var xs = pts.map(function (m) { return lon2x(m.lng, z) * TILE; });
       var ys = pts.map(function (m) { return lat2y(m.lat, z) * TILE; });
@@ -235,28 +294,37 @@ window.ZMap = (function () {
   ZMap.prototype.render = function () {
     if (!this.w) { this.w = this.el.clientWidth; this.h = this.el.clientHeight; }
     if (!this.w) return;
-    this.renderTiles();
+    this.renderLayer();
     this.renderMarks();
   };
 
-  ZMap.prototype.renderTiles = function () {
-    var def = TILES[this.tileKind];
+  ZMap.prototype.renderLayer = function () {
     var w = this.w, h = this.h;
-    var z = this.z;
-    var px0 = this.cx - w / 2, py0 = this.cy - h / 2;
 
-    // 无底图：只画坐标纸
+    if (this.base === 'atlas') {
+      this.gridLayer.style.display = 'none';
+      this.tileLayer.style.display = 'none';
+      this.baseCanvas.style.display = 'block';
+      this.hint.classList.remove('on');
+      this.renderBase();
+      return;
+    }
+    this.baseCanvas.style.display = 'none';
+
+    var def = BASES[this.base];
     if (!def) {
       this.tileLayer.style.display = 'none';
       this.gridLayer.style.display = 'block';
-      this.gridLayer.style.backgroundPosition = (-px0 % 64) + 'px ' + (-py0 % 64) + 'px';
-      this.hint.textContent = '坐标模式 · 未加载底图';
+      this.gridLayer.style.backgroundPosition = (-(this.cx - w / 2) % 64) + 'px ' + (-(this.cy - h / 2) % 64) + 'px';
+      this.hint.textContent = '坐标纸 · 无底图';
       this.hint.classList.add('on');
       return;
     }
     this.gridLayer.style.display = 'none';
     this.tileLayer.style.display = 'block';
 
+    var z = this.z;
+    var px0 = this.cx - w / 2, py0 = this.cy - h / 2;
     var n = Math.pow(2, z);
     var tx0 = Math.floor(px0 / TILE), tx1 = Math.floor((px0 + w) / TILE);
     var ty0 = Math.floor(py0 / TILE), ty1 = Math.floor((py0 + h) / TILE);
@@ -285,13 +353,8 @@ window.ZMap = (function () {
           img.addEventListener('error', function () {
             self.tileFail++;
             img.classList.add('dead');
-            // 连续失败很多 → 底图不可用，降级到坐标纸
-            if (self.tileOk === 0 && self.tileFail >= 6) {
-              self.tileKind = 'none';
-              self.hint.textContent = '底图加载失败 · 已切到坐标模式';
-              self.hint.classList.add('on');
-              self.renderTiles();
-            }
+            // 一张都没成功 → 直接退回离线底图，别让人对着空白
+            if (self.tileOk === 0 && self.tileFail >= 3) self.fallbackBase();
           });
           this._tiles[key] = img;
           this.tileLayer.appendChild(img);
@@ -300,7 +363,6 @@ window.ZMap = (function () {
         img.style.top = (ty * TILE - py0) + 'px';
       }
     }
-    // 清掉视野外的旧瓦片，避免节点堆积
     for (var k in this._tiles) {
       if (!want[k]) {
         var old = this._tiles[k];
@@ -310,10 +372,186 @@ window.ZMap = (function () {
     }
   };
 
+  /** 在线瓦片挂了 → 静默切到离线底图 */
+  ZMap.prototype.fallbackBase = function () {
+    if (this._fellBack) return;
+    this._fellBack = true;
+    var msg = '底图连不上 · 已切到离线底图';
+    this.base = 'atlas';
+    for (var k in this._tiles) {
+      if (this._tiles[k].parentNode) this._tiles[k].parentNode.removeChild(this._tiles[k]);
+    }
+    this._tiles = {};
+    this.render();
+    this.hint.textContent = msg;
+    this.hint.classList.add('on');
+    var self = this;
+    setTimeout(function () { self.hint.classList.remove('on'); }, 4200);
+    this.emit('basechange', 'atlas');
+  };
+
+  /* ------------------------------------------------------------------
+   * 离线底图：经纬网 + 度数标注 + 比例尺 + 指北针
+   * 全部以 Web Mercator 真实投影计算，所以标点落位是准的，
+   * 只是不画道路和建筑 —— 换来的是零请求、离线可用。
+   * ------------------------------------------------------------------ */
+  ZMap.prototype.renderBase = function () {
+    var c = this.baseCanvas, ctx = this.baseCtx;
+    var w = this.w, h = this.h;
+    if (!w || !h) return;
+
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+      c.style.width = w + 'px';
+      c.style.height = h + 'px';
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    var t = THEMES[this.theme] || THEMES.light;
+    var z = this.z;
+    var px0 = this.cx - w / 2, py0 = this.cy - h / 2;
+
+    // 底色
+    var g = ctx.createRadialGradient(w * 0.5, h * 0.42, 0, w * 0.5, h * 0.42, Math.max(w, h) * 0.9);
+    g.addColorStop(0, t.bg);
+    g.addColorStop(1, t.bg2);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    // 网格步长：让屏幕间距落在 100~150px
+    var degPerPx = 360 / (TILE * Math.pow(2, z));
+    var step = Math.min(90, niceNum(degPerPx * 105));
+    var dec = degDec(step);
+
+    var lonL = x2lon(px0 / TILE, z), lonR = x2lon((px0 + w) / TILE, z);
+    var latT = y2lat(py0 / TILE, z), latB = y2lat((py0 + h) / TILE, z);
+
+    // 地形晕染：一团团很淡的径向渐变，钉在经纬度上，随地图一起平移缩放
+    var blob = Math.min(60, niceNum(degPerPx * 520));
+    var bi0 = Math.floor(lonL / blob) - 1, bi1 = Math.ceil(lonR / blob) + 1;
+    var bj0 = Math.floor(latB / blob) - 1, bj1 = Math.ceil(latT / blob) + 1;
+    var guard = 0;
+    for (var bj = bj0; bj <= bj1; bj++) {
+      for (var bi = bi0; bi <= bi1; bi++) {
+        if (++guard > 42) break;
+        var hh = hash2(bi, bj);
+        var blon = (bi + 0.1 + ((hh % 800) / 1000)) * blob;
+        var blat = (bj + 0.1 + (((hh >>> 9) % 800) / 1000)) * blob;
+        if (blat < -84 || blat > 84) continue;
+        var sx = lon2x(blon, z) * TILE - px0;
+        var sy = lat2y(blat, z) * TILE - py0;
+        var R = 190 + ((hh >>> 19) % 220);
+        if (sx + R < 0 || sy + R < 0 || sx - R > w || sy - R > h) continue;
+        var rad = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
+        rad.addColorStop(0, 'rgba(' + t.blob + ',' + t.blobA + ')');
+        rad.addColorStop(0.58, 'rgba(' + t.blob + ',' + (t.blobA * 0.5).toFixed(3) + ')');
+        rad.addColorStop(1, 'rgba(' + t.blob + ',0)');
+        ctx.fillStyle = rad;
+        ctx.fillRect(sx - R, sy - R, R * 2, R * 2);
+      }
+    }
+
+    ctx.lineWidth = 1;
+
+    // 纬线
+    var i0 = Math.floor(latB / step), i1 = Math.ceil(latT / step);
+    for (var i = i0; i <= i1; i++) {
+      var lat = i * step;
+      if (lat < -85 || lat > 85) continue;
+      var y = lat2y(lat, z) * TILE - py0;
+      var major = (i % 5 === 0);
+      ctx.strokeStyle = major ? t.grid5 : t.grid;
+      ctx.beginPath();
+      ctx.moveTo(0, Math.round(y) + 0.5);
+      ctx.lineTo(w, Math.round(y) + 0.5);
+      ctx.stroke();
+    }
+    // 经线
+    var j0 = Math.floor(lonL / step), j1 = Math.ceil(lonR / step);
+    for (var j = j0; j <= j1; j++) {
+      var lon = j * step;
+      var x = lon2x(lon, z) * TILE - px0;
+      var mj = (j % 5 === 0);
+      ctx.strokeStyle = mj ? t.grid5 : t.grid;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x) + 0.5, 0);
+      ctx.lineTo(Math.round(x) + 0.5, h);
+      ctx.stroke();
+    }
+
+    // 度数标注
+    ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.fillStyle = t.text;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    for (var i2 = i0; i2 <= i1; i2++) {
+      var lat2 = i2 * step;
+      if (lat2 < -85 || lat2 > 85) continue;
+      var y2 = lat2y(lat2, z) * TILE - py0;
+      if (y2 < 18 || y2 > h - 30) continue;
+      ctx.fillText(Math.abs(lat2).toFixed(dec) + '°' + (lat2 >= 0 ? 'N' : 'S'), 8, y2 - 8);
+    }
+    ctx.textBaseline = 'bottom';
+    ctx.textAlign = 'center';
+    for (var j2 = j0; j2 <= j1; j2++) {
+      var lon2 = j2 * step;
+      var x2 = lon2x(lon2, z) * TILE - px0;
+      if (x2 < 130 || x2 > w - 70) continue;
+      ctx.fillText(Math.abs(lon2).toFixed(dec) + '°' + (lon2 >= 0 ? 'E' : 'W'), x2, h - 9);
+    }
+
+    // 比例尺（右下，给左下的信息卡腾地方）
+    var latMid = y2lat(this.cy / TILE, z);
+    var mpp = 156543.03392 * Math.cos(latMid * Math.PI / 180) / Math.pow(2, z);
+    var meters = niceNum(mpp * 96);
+    var barW = meters / mpp;
+    var bx = Math.max(16, w - 210 - Math.max(0, barW - 96)), by = h - 54;
+    ctx.strokeStyle = t.ink;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(bx, by - 5);
+    ctx.moveTo(bx, by - 2.5);
+    ctx.lineTo(bx + barW, by - 2.5);
+    ctx.moveTo(bx + barW, by - 5);
+    ctx.lineTo(bx + barW, by);
+    ctx.stroke();
+    ctx.fillStyle = t.ink;
+    ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(meters >= 1000 ? (meters / 1000) + ' km' : meters + ' m', bx, by + 2);
+
+    // 指北针（右上，落在缩放按钮下方）
+    var nx = w - 27, ny = 148;
+    ctx.save();
+    ctx.translate(nx, ny);
+    ctx.strokeStyle = t.ring;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 13, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(4, 5);
+    ctx.lineTo(0, 2);
+    ctx.lineTo(-4, 5);
+    ctx.closePath();
+    ctx.fillStyle = t.ink;
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = t.text;
+    ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('N', nx, ny + 14);
+  };
+
   ZMap.prototype.renderMarks = function () {
     var w = this.w, h = this.h;
     var px0 = this.cx - w / 2, py0 = this.cy - h / 2;
-    var n = Math.pow(2, this.z);
     this.markers.forEach(function (m) {
       if (!m.el) return;
       var x = lon2x(m.lng, this.z) * TILE - px0;
@@ -324,9 +562,10 @@ window.ZMap = (function () {
     }, this);
   };
 
-  ZMap.prototype.setTile = function (kind) {
-    this.tileKind = kind;
+  ZMap.prototype.setBase = function (kind) {
+    this.base = kind;
     this.tileOk = 0; this.tileFail = 0;
+    this._fellBack = false;
     for (var k in this._tiles) {
       if (this._tiles[k].parentNode) this._tiles[k].parentNode.removeChild(this._tiles[k]);
     }
@@ -335,6 +574,9 @@ window.ZMap = (function () {
     this.hint.classList.remove('on');
     this.render();
   };
+
+  /** 兼容旧调用名 */
+  ZMap.prototype.setTile = ZMap.prototype.setBase;
 
   return ZMap;
 })();
