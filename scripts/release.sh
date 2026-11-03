@@ -9,7 +9,8 @@
 #
 #   前置：
 #     1. 标签已推到远端（git push origin v0.0.6）
-#     2. 环境变量里有 GitHub 令牌（需要 repo 权限）：
+#     2. 二选一：已登录的 gh CLI（推荐，`gh auth login` 一次即可）
+#        或环境变量里的 GitHub 令牌（需要 repo 权限）：
 #          export GITHUB_TOKEN=ghp_xxxxxxxx
 #        令牌只用于调用 API，脚本不会把它写进任何文件。
 #     3. 仓库地址可用 ZUPU_REPO 覆盖，默认读取 origin。
@@ -32,6 +33,28 @@ fi
 
 API="https://api.github.com/repos/${REPO}/releases"
 
+# gh CLI：优先走已登录的 gh（不用管令牌）；找不到就退回 curl + GITHUB_TOKEN
+GH_BIN=""
+for cand in "${ZUPU_GH:-}" "$(command -v gh 2>/dev/null || true)" "$HOME/bin/gh" /opt/homebrew/bin/gh /usr/local/bin/gh; do
+  if [[ -n "$cand" && -x "$cand" ]]; then GH_BIN="$cand"; break; fi
+done
+if [[ -n "$GH_BIN" ]] && ! "$GH_BIN" auth status >/dev/null 2>&1; then GH_BIN=""; fi
+
+# 每个版本一句话主题，用作 Release 标题
+release_title() {
+  case "$1" in
+    0.0.1) echo "首个版本 · 树杈式族谱与后台" ;;
+    0.0.2) echo "无边记式画布编辑器" ;;
+    0.0.3) echo "家庭单元布局与一键启动" ;;
+    0.0.4) echo "内置真实家族数据" ;;
+    0.0.5) echo "家族语录与家族历史" ;;
+    0.0.6) echo "成员头像与家族相册" ;;
+    0.0.7) echo "相册真实照片，照片墙铺满一屏" ;;
+    0.0.8) echo "续谱收集表与刘氏九代世系" ;;
+    *)     echo "宗谱更新" ;;
+  esac
+}
+
 # 取出某个版本的正文（去掉标题行本身）
 notes_for() {
   local ver="$1"
@@ -47,6 +70,9 @@ all_versions() {
     | sed -E 's/^## \[(.*)\]/\1/' \
     | sort -V
 }
+
+# 最新版（用来决定哪条 Release 打 latest 标）
+LATEST_TAG="v$(all_versions | tail -1)"
 
 publish_one() {
   local ver="$1" dry="${2:-0}"
@@ -74,19 +100,52 @@ publish_one() {
     echo "! 标签 $tag 还没推到远端：git push origin $tag"
     return 1
   fi
-  if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-    echo "✗ 缺少 GITHUB_TOKEN（export GITHUB_TOKEN=...）"
+  if [[ -z "$GH_BIN" && -z "${GITHUB_TOKEN:-}" ]]; then
+    echo "✗ 既没有已登录的 gh，也没有 GITHUB_TOKEN"
+    echo "  → 任选其一：gh auth login   或   export GITHUB_TOKEN=..."
     return 1
+  fi
+
+  local title latest pre
+  title="$tag · $(release_title "$bare")"
+  latest="false"; [[ "$tag" == "$LATEST_TAG" ]] && latest="true"
+  pre="false"; { [[ "$tag" == *-beta ]] || [[ "$tag" == *-beta.* ]]; } && pre="true"
+
+  local notes_file
+  notes_file="$(mktemp -t zupu-notes)"
+  printf '%s\n' "$notes" >"$notes_file"
+
+  # 优先 gh（复用已登录的凭据，不碰令牌）
+  if [[ -n "$GH_BIN" ]]; then
+    local out
+    if "$GH_BIN" release view "$tag" >/dev/null 2>&1; then
+      if out="$("$GH_BIN" release edit "$tag" --title "$title" --notes-file "$notes_file" \
+                 --latest="$latest" --prerelease="$pre" 2>&1)"; then
+        echo "✓ 已更新 Release $tag"
+      else
+        echo "✗ 更新 $tag 失败"; echo "$out"; rm -f "$notes_file"; return 1
+      fi
+    else
+      if out="$("$GH_BIN" release create "$tag" --title "$title" --notes-file "$notes_file" \
+                 --latest="$latest" --prerelease="$pre" 2>&1)"; then
+        echo "✓ 已发布 Release $tag"
+        printf '  %s\n' "$(printf '%s' "$out" | grep -Eo 'https://[^ ]+' | tail -1)"
+      else
+        echo "✗ 发布 $tag 失败"; echo "$out"; rm -f "$notes_file"; return 1
+      fi
+    fi
+    rm -f "$notes_file"
+    return 0
   fi
 
   local tmp
   tmp="$(mktemp -t zupu-release)"
-  python3 - "$tag" "$notes" >"$tmp" <<'PY'
+  python3 - "$tag" "$title" "$notes" >"$tmp" <<'PY'
 import json, sys
-tag, notes = sys.argv[1], sys.argv[2]
+tag, title, notes = sys.argv[1], sys.argv[2], sys.argv[3]
 print(json.dumps({
     "tag_name": tag,
-    "name": f"宗谱 {tag}",
+    "name": title,
     "body": notes,
     "draft": False,
     "prerelease": tag.endswith("-beta") or "-beta." in tag,

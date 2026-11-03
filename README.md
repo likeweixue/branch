@@ -662,11 +662,16 @@ git tag v0.0.7
 git push origin main --tags
 
 # 3. 发布 Release（正文自动取 CHANGELOG 的 [0.0.7] 小节）
-export GITHUB_TOKEN=ghp_xxxxxxxx      # 只需一次（当前终端有效），需要 repo 权限
 ./scripts/release.sh v0.0.7
 ```
 
 脚本会先检查标签是否已推到远端，已存在同名 Release 则**更新**（不会重复创建）。
+
+**认证**：优先复用已登录的 `gh`（`gh auth login` 一次即可，令牌存在系统钥匙串里），本机 `gh auth status` 正常就不用再管令牌；没有 gh 时才退回读 `GITHUB_TOKEN` 环境变量。
+
+Release 标题形如 `v0.0.7 · 相册真实照片，照片墙铺满一屏`——一句话主题在脚本的 `release_title()` 里按版本登记，最新版自动打 `Latest` 标。
+
+> `gh` 不在 PATH 里也能用：脚本会自动找 `~/bin/gh`、`/opt/homebrew/bin/gh`、`/usr/local/bin/gh`；也可以用 `ZUPU_GH=/path/to/gh` 显式指定。
 
 ### 常用参数
 
@@ -676,13 +681,13 @@ export GITHUB_TOKEN=ghp_xxxxxxxx      # 只需一次（当前终端有效），�
 | `./scripts/release.sh v0.0.7 --dry` | 只打印将要发布的正文，不调用 API |
 | `./scripts/release.sh --all` | 按 CHANGELOG 顺序补齐**所有**版本（用于回填历史标签） |
 
-> 习惯用 `gh` 也可以：`gh release create v0.0.7 --notes-file <(./scripts/release.sh v0.0.7 --dry)`。仓库地址可用 `ZUPU_REPO=owner/name` 覆盖。
+> 仓库地址可用 `ZUPU_REPO=owner/name` 覆盖。
 
 ### 版本号约定
 
 - `0.0.x`：功能迭代，每次 +1；
 - 破坏性改动或数据结构变更，在 CHANGELOG 里单列「⚠️ 升级注意」；
-- 标签统一 `v` 前缀（`v0.0.6`），Release 标题为「宗谱 v0.0.6」。
+- 标签统一 `v` 前缀（`v0.0.6`），Release 标题为「`v0.0.6 · 一句话主题`」。
 
 ---
 
