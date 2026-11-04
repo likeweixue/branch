@@ -13,7 +13,7 @@ require_once __DIR__ . '/storage.php';
 function zp_seed_members() {
     return [
         // 第一代：母系外祖父母（父系麻家从母亲这一辈起才并入谱，祖辈不单列）
-        ['id'=>'m3','name'=>'刘祖德','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'外公。刘小雨与大姨妈、三姨妈、五姨妈之父。','father_id'=>'m28','mother_id'=>null,'spouse_ids'=>['m4'],'order'=>1],
+        ['id'=>'m3','name'=>'刘祖德','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'外公，刘小雨与大姨妈、三姨妈、五姨妈之父。刘常云次子，与刘孟祥（老大）、刘主福（老三）为兄弟。','father_id'=>'m24','mother_id'=>null,'spouse_ids'=>['m4'],'order'=>3],
         ['id'=>'m4','name'=>'刘家外婆','zi_bei'=>'','gender'=>'female','birth'=>'','avatar'=>'','death'=>null,'bio'=>'外婆，姓名待补。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m3'],'order'=>1],
         // 第二代：父母
         ['id'=>'m5','name'=>'麻林彪','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'父亲。母系一支从母亲这一辈起入谱，父系祖辈不再单列。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>['m6'],'order'=>1],
@@ -31,19 +31,19 @@ function zp_seed_members() {
         // 刘氏世系（据手抄族谱补录，最长一支九代）
         ['id'=>'m15','name'=>'刘子隆','zi_bei'=>'子','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'手抄族谱载：『九代祖坟墓　弄袍坳坟　刘子隆』。子字辈，本支开山祖，世系自其而下。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>[],'order'=>1],
         ['id'=>'m16','name'=>'刘子亮','zi_bei'=>'子','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'子字辈，与刘子隆同辈，是现存最早的两座祖坟之一；后世未记。','father_id'=>null,'mother_id'=>null,'spouse_ids'=>[],'order'=>2],
-        ['id'=>'m17','name'=>'刘文门','zi_bei'=>'文','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘子隆之子。','father_id'=>'m15','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
+        ['id'=>'m17','name'=>'刘文门','zi_bei'=>'文','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘子亮之子。','father_id'=>'m16','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
         ['id'=>'m18','name'=>'刘国赢','zi_bei'=>'国','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘文门长子。','father_id'=>'m17','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
         ['id'=>'m19','name'=>'刘国清','zi_bei'=>'国','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘文门次子。生一男而早亡，此脉遂绝。','father_id'=>'m17','mother_id'=>null,'spouse_ids'=>[],'order'=>2],
         ['id'=>'m20','name'=>'刘国顺','zi_bei'=>'国','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘文门三子，后世未记。','father_id'=>'m17','mother_id'=>null,'spouse_ids'=>[],'order'=>3],
         ['id'=>'m21','name'=>'国清之子','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘国清之子，早亡无嗣，名字未留下。刘国清一脉至此而止。','father_id'=>'m19','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
         ['id'=>'m22','name'=>'刘老三','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘国赢之子。名字没有记录，族中只称『刘老三』。','father_id'=>'m18','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
         ['id'=>'m23','name'=>'刘常芝','zi_bei'=>'常','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘老三长子。','father_id'=>'m22','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
-        ['id'=>'m24','name'=>'刘常云','zi_bei'=>'常','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘老三次子，母亲的爷爷（外曾祖父）。','father_id'=>'m22','mother_id'=>null,'spouse_ids'=>[],'order'=>2],
+        ['id'=>'m24','name'=>'刘常云','zi_bei'=>'常','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘老三次子，刘祖德之父（外曾祖父）。','father_id'=>'m22','mother_id'=>null,'spouse_ids'=>[],'order'=>2],
         ['id'=>'m25','name'=>'刘正国','zi_bei'=>'国','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘常芝之子，小名『小虫』。手抄本在名字之后另记一句：『招祖德命尽亡故』（原文照录，文意待考）。','father_id'=>'m23','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
         ['id'=>'m26','name'=>'刘长才','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘常云长子。','father_id'=>'m24','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
-        ['id'=>'m27','name'=>'刘孟祥','zi_bei'=>'孟','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘常云次子。','father_id'=>'m24','mother_id'=>null,'spouse_ids'=>[],'order'=>2],
-        ['id'=>'m28','name'=>'刘主福','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘常云三子。刘祖德之父，即母亲的爷爷。','father_id'=>'m24','mother_id'=>null,'spouse_ids'=>[],'order'=>3],
-        ['id'=>'m29','name'=>'刘璟弋','zi_bei'=>'远','gender'=>'male','birth'=>'2026-08-06','avatar'=>'','death'=>null,'bio'=>'2026 年 8 月 6 日出生，字辈『远』。','father_id'=>'m14','mother_id'=>null,'spouse_ids'=>[],'order'=>1],
+        ['id'=>'m27','name'=>'刘孟祥','zi_bei'=>'孟','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘常云次子（行二），兄弟中居长。','father_id'=>'m24','mother_id'=>null,'spouse_ids'=>[],'order'=>2],
+        ['id'=>'m28','name'=>'刘主福','zi_bei'=>'','gender'=>'male','birth'=>'','avatar'=>'','death'=>null,'bio'=>'刘常云三子（行四）。刘祖德之弟。','father_id'=>'m24','mother_id'=>null,'spouse_ids'=>[],'order'=>4],
+        ['id'=>'m29','name'=>'刘璟弋','zi_bei'=>'远','gender'=>'male','birth'=>'2026-08-06','avatar'=>'','death'=>null,'bio'=>'2026 年 8 月 6 日出生，字辈『远』。刘雪之子。','father_id'=>null,'mother_id'=>'m13','spouse_ids'=>[],'order'=>1],
     ];
 }
 

@@ -6,15 +6,15 @@
         "gender": "male",
         "birth": "",
         "death": null,
-        "bio": "外公。刘小雨与大姨妈、三姨妈、五姨妈之父。",
+        "bio": "外公，刘小雨与大姨妈、三姨妈、五姨妈之父。刘常云次子，与刘孟祥（老大）、刘主福（老三）为兄弟。",
         "avatar": "",
         "link_type": "",
-        "father_id": "m28",
+        "father_id": "m24",
         "mother_id": null,
         "spouse_ids": [
             "m4"
         ],
-        "order": 1
+        "order": 3
     },
     {
         "id": "m4",
@@ -236,10 +236,10 @@
         "gender": "male",
         "birth": "",
         "death": null,
-        "bio": "刘子隆之子。",
+        "bio": "刘子亮之子。",
         "avatar": "",
         "link_type": "",
-        "father_id": "m15",
+        "father_id": "m16",
         "mother_id": null,
         "spouse_ids": [],
         "order": 1
@@ -386,7 +386,7 @@
         "gender": "male",
         "birth": "",
         "death": null,
-        "bio": "刘常云次子。",
+        "bio": "刘常云次子（行二），兄弟中居长。",
         "avatar": "",
         "link_type": "",
         "father_id": "m24",
@@ -401,13 +401,13 @@
         "gender": "male",
         "birth": "",
         "death": null,
-        "bio": "刘常云三子。刘祖德之父，即母亲的爷爷。",
+        "bio": "刘常云三子（行四）。刘祖德之弟。",
         "avatar": "",
         "link_type": "",
         "father_id": "m24",
         "mother_id": null,
         "spouse_ids": [],
-        "order": 3
+        "order": 4
     },
     {
         "id": "m29",
@@ -416,11 +416,11 @@
         "gender": "male",
         "birth": "2026-08-06",
         "death": null,
-        "bio": "2026 年 8 月 6 日出生，字辈『远』。",
+        "bio": "2026 年 8 月 6 日出生，字辈「远」。刘雪之子。",
         "avatar": "",
         "link_type": "",
-        "father_id": "m14",
-        "mother_id": null,
+        "father_id": null,
+        "mother_id": "m13",
         "spouse_ids": [],
         "order": 1
     }

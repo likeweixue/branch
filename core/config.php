@@ -172,6 +172,8 @@ function zp_default_settings() {
         'layout' => 'horizontal', // horizontal 横排(左大字辈/右小字辈) | vertical 竖排(上大字辈/下小字辈)
         'layout_mode' => 'auto',  // auto 按代数自动排列 | custom 用画布编辑器保存的手工位置
         'edge_arrows' => [],      // 连线的箭头方向：{'parent:m3>m6': 'to'|'back'}，空 = 不画箭头
+        'edge_styles' => [],      // 连线样式：{'parent:m3>m6': {c:'#e5484d', a:'to'}}，编辑器按根线自定义
+        'free_edges'  => [],      // 自定义连线：[{id, from, to, label}]，只画线、不写入亲属关系
         'lines' => [
             'parent'  => '#cfd3d8', // 父子/母子（默认浅灰线，后台可改为纯白）
             'marriage'=> '#e5484d', // 两姓结姻（红线）

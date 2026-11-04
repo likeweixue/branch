@@ -57,5 +57,7 @@
         }
     ],
     "layout_mode": "auto",
-    "edge_arrows": []
+    "edge_arrows": {},
+    "edge_styles": {},
+    "free_edges": []
 }

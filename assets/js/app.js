@@ -193,6 +193,8 @@
   var svg, vp, gEdges, gNodes, stage;
   var SVGNS = 'http://www.w3.org/2000/svg';
   var ARROWS = settings.edge_arrows || {};
+  var STYLES = settings.edge_styles || {};
+  var FREE_EDGES = Array.isArray(settings.free_edges) ? settings.free_edges : [];
 
   /** 连线箭头：key 与画布编辑器保持一致 */
   function arrowKey(type, from, to) {
@@ -202,8 +204,10 @@
     }
     return 'parent:' + from + '>' + to;
   }
+  function edgeStyle(key) { return STYLES[key] || {}; }
   function arrowOf(type, from, to) {
-    var v = ARROWS[arrowKey(type, from, to)];
+    var k = arrowKey(type, from, to);
+    var v = (STYLES[k] || {}).a || ARROWS[k];
     return (v === 'to' || v === 'back') ? v : '';
   }
 
@@ -230,8 +234,9 @@
     members.forEach(function (m) {
       var pid = primaryParentId(m);
       if (!pid || !pos[pid] || !pos[m.id]) return;
-      var c = parentColor;
-      if (m.link_type) {
+      var key = arrowKey('parent', pid, m.id);
+      var c = edgeStyle(key).c || parentColor;
+      if (!edgeStyle(key).c && m.link_type) {
         var t = lineTypeById(m.link_type);
         if (t && t.color) c = t.color;
       }
@@ -247,8 +252,17 @@
         var key = [m.id, sid].sort().join('|');
         if (drawn[key]) return;
         drawn[key] = true;
-        gEdges.appendChild(edge(marriagePath(pos[m.id], pos[sid]), marriageColor, arrowOf('marriage', m.id, sid), 'link is-marriage'));
+        var c = edgeStyle(arrowKey('marriage', m.id, sid)).c || marriageColor;
+        gEdges.appendChild(edge(marriagePath(pos[m.id], pos[sid]), c, arrowOf('marriage', m.id, sid), 'link is-marriage'));
       });
+    });
+    // 编辑器里手画的「自定义线」：不打乱辈分，只画一条弧
+    FREE_EDGES.forEach(function (f) {
+      if (!pos[f.from] || !pos[f.to]) return;
+      var key = 'free:' + f.id;
+      var c = edgeStyle(key).c || '#7a5af8';
+      var st = edgeStyle(key);
+      gEdges.appendChild(edge(freePath(pos[f.from], pos[f.to]), c, st.a === 'to' || st.a === 'back' ? st.a : '', 'link is-free'));
     });
 
     // 节点
@@ -307,6 +321,29 @@
     return 'M' + a.x + ',' + (a.y + t * NODE_H / 2) + ' L' + b.x + ',' + (b.y - t * NODE_H / 2);
   }
 
+  /** 自定义线：走一段弧，和姻亲直线区分开（与编辑器几何一致） */
+  function freePath(a0, b0) {
+    // 端点收到卡片边框上，别从卡片里穿出来
+    var a = trimToRect(a0, b0), b = trimToRect(b0, a0);
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    var nx = -dy / len, ny = dx / len;
+    var mx = (a.x + b.x) / 2 + nx * 38;
+    var my = (a.y + b.y) / 2 + ny * 38;
+    return 'M' + a.x + ',' + a.y + ' Q' + mx + ',' + my + ' ' + b.x + ',' + b.y;
+  }
+
+  /** 从卡片中心朝 q 方向，落在卡片边框上的点 */
+  function trimToRect(p, q) {
+    var dx = q.x - p.x, dy = q.y - p.y;
+    if (!dx && !dy) return { x: p.x, y: p.y };
+    var tx = dx ? (NODE_W / 2) / Math.abs(dx) : Infinity;
+    var ty = dy ? (NODE_H / 2) / Math.abs(dy) : Infinity;
+    var t = Math.min(tx, ty);
+    return { x: p.x + dx * t, y: p.y + dy * t };
+  }
+
+
   var defs, markerCache;
   function markerId(color, at) {
     var c = String(color || '#cfd3d8').replace(/[^0-9a-z]/gi, '');
@@ -336,6 +373,7 @@
     p.setAttribute('d', d);
     p.setAttribute('class', 'zp-link' + (cls ? ' ' + cls : ''));
     p.setAttribute('stroke', color);
+    if (cls && cls.indexOf('is-free') !== -1) p.setAttribute('stroke-dasharray', '7 4');
     if (arrow === 'to') p.setAttribute('marker-end', 'url(#' + markerId(color, 'end') + ')');
     else if (arrow === 'back') p.setAttribute('marker-start', 'url(#' + markerId(color, 'start') + ')');
     return p;

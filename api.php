@@ -960,8 +960,10 @@ switch ($action) {
         }
         zp_save_json(MEMBERS_FILE, $out);
 
-        // 连线箭头 + 排列方式（编辑器与前台共用）
+        // 连线样式（颜色 / 箭头）+ 自定义线 + 排列方式（编辑器与前台共用）
         $settings = zp_load_json(SETTINGS_FILE, zp_default_settings());
+
+        // 老字段 edge_arrows：仍然收，兼容老版本编辑器
         if (isset($in['arrows']) && is_array($in['arrows'])) {
             $clean = [];
             foreach ($in['arrows'] as $k => $v) {
@@ -972,6 +974,46 @@ switch ($action) {
             }
             $settings['edge_arrows'] = $clean ?: new stdClass();
         }
+
+        // 新字段 edge_styles：{ 'parent:m1>m2': {c:'#e5484d', a:'to'} }
+        if (isset($in['styles']) && is_array($in['styles'])) {
+            $styles = [];
+            foreach ($in['styles'] as $k => $v) {
+                if (!is_string($k) || !is_array($v)) continue;
+                if (!preg_match('/^(parent|marriage|free):[\w\-|>]+$/', $k)) continue;
+                $row = [];
+                $c = strtolower(trim((string) ($v['c'] ?? '')));
+                if (preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/', $c)) $row['c'] = $c;
+                $a = (string) ($v['a'] ?? '');
+                if (in_array($a, ['to', 'back'], true)) $row['a'] = $a;
+                if ($row) $styles[$k] = $row;
+            }
+            $settings['edge_styles'] = $styles ?: new stdClass();
+        }
+
+        // 自定义线：只画线，不写入亲属关系
+        if (isset($in['free_edges']) && is_array($in['free_edges'])) {
+            $frees = [];
+            $seen = [];
+            foreach ($in['free_edges'] as $f) {
+                if (!is_array($f)) continue;
+                $fid = preg_replace('/[^\w\-]/', '', (string) ($f['id'] ?? ''));
+                $a = (string) ($f['from'] ?? '');
+                $b = (string) ($f['to'] ?? '');
+                if ($fid === '' || $a === '' || $b === '' || $a === $b) continue;
+                if (!isset($byId[$a]) || !isset($byId[$b])) continue;
+                if (isset($seen[$fid])) continue;
+                $seen[$fid] = true;
+                $frees[] = [
+                    'id'    => $fid,
+                    'from'  => $a,
+                    'to'    => $b,
+                    'label' => mb_substr(trim((string) ($f['label'] ?? '')), 0, 20),
+                ];
+            }
+            $settings['free_edges'] = $frees;
+        }
+
         if (isset($in['layout']) && in_array($in['layout'], ['horizontal', 'vertical'], true)) {
             $settings['layout'] = $in['layout'];
         }
